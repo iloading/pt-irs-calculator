@@ -288,7 +288,15 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <SummaryCard label={t.resultsProceeds} value={formatEUR(summary.totalProceedsEUR)} />
         <SummaryCard label={t.resultsCost} value={formatEUR(summary.totalAcquisitionCostEUR)} />
-        <SummaryCard label={t.resultsFees} value={formatEUR(summary.totalSaleFeesEUR)} />
+        <SummaryCard
+          label={t.resultsFees}
+          value={formatEUR(summary.totalFeesEUR)}
+          tooltip={
+            lang === 'pt'
+              ? `Compras: ${formatEUR(summary.totalBuyFeesEUR)} · Vendas: ${formatEUR(summary.totalSaleFeesEUR)}`
+              : `Buys: ${formatEUR(summary.totalBuyFeesEUR)} · Sells: ${formatEUR(summary.totalSaleFeesEUR)}`
+          }
+        />
         <SummaryCard
           label={t.resultsRawGain}
           value={formatEUR(summary.totalRawGainEUR)}

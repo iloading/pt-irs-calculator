@@ -98,6 +98,7 @@ function processSell(
     remainingToSell -= matched;
 
     const acquisitionCostEUR = matched * lot.acquisitionCostPerShare;
+    const buyFeeEUR = matched * lot.feePerShare;
     const saleValueEUR = matched * proceedsPerShare;
     const saleFeeEUR = matched * saleFeePerShare;
 
@@ -114,6 +115,7 @@ function processSell(
       lotOrderId: lot.orderId,
       quantityMatched: matched,
       acquisitionCostEUR,
+      buyFeeEUR,
       saleValueEUR,
       saleFeeEUR,
       holdingDays,
@@ -185,6 +187,7 @@ export function calculateFIFO(
     const grossProceedsEUR = tx.eurValue;
     const totalSaleFeeEUR = Math.abs(tx.autoFxFee) + Math.abs(tx.transactionFee);
     const totalAcqCost = matches.reduce((s, m) => s + m.acquisitionCostEUR, 0);
+    const totalBuyFeeEUR = matches.reduce((s, m) => s + m.buyFeeEUR, 0);
     const totalRawGain = matches.reduce((s, m) => s + m.rawGainEUR, 0);
     const totalTaxableGain = matches.reduce((s, m) => s + m.taxableGainEUR, 0);
     const reductionApplied = matches.some((m) => m.holdingTier.exclusionRate > 0);
@@ -197,6 +200,7 @@ export function calculateFIFO(
       totalQuantitySold: Math.abs(tx.quantity),
       grossProceedsEUR,
       totalSaleFeeEUR,
+      totalBuyFeeEUR,
       netProceedsEUR: grossProceedsEUR - totalSaleFeeEUR,
       fifoMatches: matches,
       totalAcquisitionCostEUR: totalAcqCost,

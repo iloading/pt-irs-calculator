@@ -51,6 +51,7 @@ export interface FifoMatch {
   lotOrderId: string;
   quantityMatched: number;
   acquisitionCostEUR: number;   // cost basis for this matched portion (clean EUR value + acq fees)
+  buyFeeEUR: number;            // acquisition fees portion only (autoFx + transaction at buy)
   saleValueEUR: number;         // proceeds allocated to this portion
   saleFeeEUR: number;           // sale fees allocated to this portion
   holdingDays: number;
@@ -68,6 +69,7 @@ export interface TaxableSale {
   totalQuantitySold: number;
   grossProceedsEUR: number;  // Valor EUR from CSV (ex-fees)
   totalSaleFeeEUR: number;   // autoFx + transaction fees on the sale
+  totalBuyFeeEUR: number;    // sum of buy-side fees for the matched lots
   netProceedsEUR: number;    // grossProceeds - totalSaleFee (not used for tax calc, informational)
   fifoMatches: FifoMatch[];
   totalAcquisitionCostEUR: number;
@@ -92,6 +94,8 @@ export interface TaxSummary {
   totalProceedsEUR: number;
   totalAcquisitionCostEUR: number;
   totalSaleFeesEUR: number;
+  totalBuyFeesEUR: number;     // sum of all buy-side fees across matched lots
+  totalFeesEUR: number;        // totalBuyFeesEUR + totalSaleFeesEUR
   totalRawGainEUR: number;
   totalTaxableGainEUR: number; // after holding period exclusions
   taxAtAutonomousRate: number; // taxableGain * 0.28 (only when positive)

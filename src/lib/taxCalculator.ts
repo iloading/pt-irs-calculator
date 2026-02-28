@@ -45,6 +45,8 @@ export function buildTaxSummary(
   const totalProceedsEUR = sales.reduce((s, sale) => s + sale.grossProceedsEUR, 0);
   const totalAcquisitionCostEUR = sales.reduce((s, sale) => s + sale.totalAcquisitionCostEUR, 0);
   const totalSaleFeesEUR = sales.reduce((s, sale) => s + sale.totalSaleFeeEUR, 0);
+  const totalBuyFeesEUR = sales.reduce((s, sale) => s + sale.totalBuyFeeEUR, 0);
+  const totalFeesEUR = totalBuyFeesEUR + totalSaleFeesEUR;
   const totalRawGainEUR = sales.reduce((s, sale) => s + sale.totalRawGainEUR, 0);
   const totalTaxableGainEUR = sales.reduce((s, sale) => s + sale.totalTaxableGainEUR, 0);
 
@@ -57,6 +59,8 @@ export function buildTaxSummary(
     totalProceedsEUR,
     totalAcquisitionCostEUR,
     totalSaleFeesEUR,
+    totalBuyFeesEUR,
+    totalFeesEUR,
     totalRawGainEUR,
     totalTaxableGainEUR,
     taxAtAutonomousRate,

@@ -52,7 +52,7 @@ function AppInner() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-base font-bold leading-tight">{t.appTitle}</h1>
           </div>
@@ -66,7 +66,7 @@ function AppInner() {
       </header>
 
       {/* Step indicator */}
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-2">
+      <div className="max-w-7xl mx-auto px-4 pt-6 pb-2">
         <StepIndicator
           steps={stepLabels.map((label, index) => ({ label, index }))}
           currentIndex={stepIndex}
@@ -74,7 +74,7 @@ function AppInner() {
       </div>
 
       {/* Main content */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 py-6">
         {step === 'upload' && (
           <UploadStep onComplete={handleUploadComplete} />
         )}
@@ -108,7 +108,7 @@ function AppInner() {
 
       {/* Footer */}
       <footer className="border-t mt-12 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-4 text-xs text-muted-foreground text-center">
+        <div className="max-w-7xl mx-auto px-4 py-4 text-xs text-muted-foreground text-center">
           {lang === 'pt'
             ? 'Para fins informativos apenas. Confirme sempre com um TOC/ROC antes de submeter a sua declaração.'
             : 'For informational purposes only. Always confirm with a certified accountant before submitting your declaration.'}

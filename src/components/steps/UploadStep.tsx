@@ -123,7 +123,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const totalTransactions = combinedResult?.transactions.length ?? 0;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold">{t.uploadTitle}</h2>
         <p className="text-muted-foreground mt-1">{t.uploadDesc}</p>

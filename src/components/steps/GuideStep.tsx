@@ -8,6 +8,8 @@ import {
   Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useI18n } from '@/lib/i18n';
 import { formatEUR, formatDate } from '@/lib/taxCalculator';
 import { cn } from '@/lib/utils';
@@ -234,21 +236,22 @@ export function GuideStep({ summary, onBack, onRestart }: GuideStepProps) {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <h3 className="font-semibold">{t.guideFilingTable}</h3>
           <div className="flex items-center gap-3 flex-wrap">
-            <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 cursor-pointer select-none">
+              <Switch
+                id="simplified-toggle"
                 checked={simplified}
-                onChange={(e) => setSimplified(e.target.checked)}
-                className="w-4 h-4 accent-primary"
+                onCheckedChange={setSimplified}
               />
-              <span className="font-medium">{t.guideSimplifyToggle}</span>
+              <Label htmlFor="simplified-toggle" className="text-sm font-medium cursor-pointer">
+                {t.guideSimplifyToggle}
+              </Label>
               {simplified && (
                 <span className="text-xs text-muted-foreground">
                   {t.guideSimplifyRows(simplifiedFilingRows.length)}{' '}
                   {t.guideDetailedRows(allFilingRows.length)}
                 </span>
               )}
-            </label>
+            </div>
             <Button
               variant="outline"
               size="sm"

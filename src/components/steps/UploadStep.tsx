@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Upload, FileText, AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { parseBrokerFile, getAvailableSaleYears } from '@/lib/brokerParser';
@@ -239,13 +243,15 @@ export function UploadStep({ onComplete }: UploadStepProps) {
                       {file.result.transactions.length} {t.uploadRows}
                     </p>
                   </div>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
-                    className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    className="shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     title={t.uploadRemoveFile}
                   >
                     <X className="w-4 h-4" />
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Cross-validation row (only when panel is open) */}
@@ -257,7 +263,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
                       </label>
                       <div className="flex items-center gap-1 flex-1 min-w-[160px]">
                         <span className="text-muted-foreground text-xs">€</span>
-                        <input
+                        <Input
                           type="number"
                           min={0}
                           step="0.01"
@@ -266,7 +272,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
                           onChange={(e) =>
                             setValidationInputs((prev) => ({ ...prev, [file.name]: e.target.value }))
                           }
-                          className="border rounded px-2 py-1 text-xs bg-background w-32 focus:ring-1 focus:ring-primary focus:outline-none"
+                          className="h-7 text-xs w-32"
                         />
                       </div>
                       {isMatch && (
@@ -296,15 +302,16 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
           {/* Validation toggle + combined summary */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox
+                id="show-validation"
                 checked={showValidation}
-                onChange={(e) => setShowValidation(e.target.checked)}
-                className="w-3.5 h-3.5 accent-primary"
+                onCheckedChange={(v) => setShowValidation(!!v)}
               />
-              {t.validateTitle}
-            </label>
+              <Label htmlFor="show-validation" className="text-xs text-muted-foreground cursor-pointer">
+                {t.validateTitle}
+              </Label>
+            </div>
             {uploadedFiles.length > 1 && (
               <div className="text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
@@ -343,18 +350,21 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             <label className="text-sm font-medium" htmlFor="year-select">
               {t.reviewFiscalYear}
             </label>
-            <select
-              id="year-select"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="w-full border rounded-lg px-3 py-2 bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+            <Select
+              value={String(selectedYear)}
+              onValueChange={(v) => setSelectedYear(Number(v))}
             >
-              {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="year-select" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Warnings */}

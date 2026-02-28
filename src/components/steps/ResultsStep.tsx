@@ -8,6 +8,10 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { SummaryCard } from '@/components/ui/SummaryCard';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -324,15 +328,16 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
       <div className="rounded-xl border p-4 space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <h3 className="font-semibold text-sm">{t.resultsHoldingReduction}</h3>
-          <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2">
+            <Switch
+              id="holding-reduction-switch"
               checked={applyHoldingReductions}
-              onChange={(e) => setApplyHoldingReductions(e.target.checked)}
-              className="w-4 h-4 accent-primary"
+              onCheckedChange={setApplyHoldingReductions}
             />
-            {t.resultsHoldingReductionToggle}
-          </label>
+            <Label htmlFor="holding-reduction-switch" className="text-sm cursor-pointer select-none">
+              {t.resultsHoldingReductionToggle}
+            </Label>
+          </div>
         </div>
 
         {/* Tier table — always visible */}
@@ -398,28 +403,20 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
       <div className="rounded-xl border p-4 space-y-4">
         <h3 className="font-semibold text-sm">{t.resultsTaxMethod}</h3>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant={taxMethod === 'autonomous' ? 'default' : 'outline'}
+            className="flex-1"
             onClick={() => setTaxMethod('autonomous')}
-            className={cn(
-              'flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
-              taxMethod === 'autonomous'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background border-muted hover:border-primary/50'
-            )}
           >
             {t.resultsAutonomous}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={taxMethod === 'englobamento' ? 'default' : 'outline'}
+            className="flex-1"
             onClick={() => setTaxMethod('englobamento')}
-            className={cn(
-              'flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
-              taxMethod === 'englobamento'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background border-muted hover:border-primary/50'
-            )}
           >
             {t.resultsEnglobamento}
-          </button>
+          </Button>
         </div>
 
         {taxMethod === 'englobamento' && (
@@ -430,15 +427,16 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
               <>
                 {/* IRS Jovem year selector */}
                 <div className="space-y-2 p-2.5 rounded-lg border bg-muted/10">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      id="irs-jovem-checkbox"
                       checked={irsJovemYear > 0}
-                      onChange={(e) => setIrsJovemYear(e.target.checked ? 1 : 0)}
-                      className="accent-primary"
+                      onCheckedChange={(v) => setIrsJovemYear(v ? 1 : 0)}
                     />
-                    <span className="text-xs font-semibold">{t.resultsIRSJovemToggle}</span>
-                  </label>
+                    <Label htmlFor="irs-jovem-checkbox" className="text-xs font-semibold cursor-pointer">
+                      {t.resultsIRSJovemToggle}
+                    </Label>
+                  </div>
                   {irsJovemYear > 0 && (
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -475,13 +473,13 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-sm">€</span>
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step={1000}
                       value={otherIncome}
                       onChange={(e) => setOtherIncome(Number(e.target.value))}
-                      className="border rounded-lg px-3 py-2 bg-background text-sm w-full focus:ring-2 focus:ring-primary focus:outline-none"
+                      className="w-full"
                     />
                   </div>
                   {irsJovemYear > 0 && (

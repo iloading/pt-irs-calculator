@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { formatDate } from '@/lib/taxCalculator';
@@ -90,45 +92,45 @@ export function ReviewStep({ parseResult, selectedYear, onBack, onContinue }: Re
 
         {/* Year filter */}
         <div className="flex items-center gap-2 text-sm">
-          <label htmlFor="year-filter" className="font-medium">
+          <Label htmlFor="year-filter" className="font-medium">
             {lang === 'pt' ? 'Mostrar ano:' : 'Show year:'}
-          </label>
-          <select
-            id="year-filter"
-            value={filterYear}
-            onChange={(e) => setFilterYear(e.target.value)}
-            className="border rounded-md px-2 py-1 bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-          >
-            <option value="all">{allLabel}</option>
-            {allYears.map((y) => (
-              <option key={y} value={y}>
-                {y}{y === selectedYear ? (lang === 'pt' ? ' (ano fiscal)' : ' (fiscal year)') : ''}
-              </option>
-            ))}
-          </select>
+          </Label>
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger id="year-filter" className="h-8 w-40 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{allLabel}</SelectItem>
+              {allYears.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}{y === selectedYear ? (lang === 'pt' ? ' (ano fiscal)' : ' (fiscal year)') : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* ISIN filter */}
         <div className="flex items-center gap-2 text-sm ml-auto">
-          <label htmlFor="isin-filter" className="font-medium">
+          <Label htmlFor="isin-filter" className="font-medium">
             {t.reviewFilter}:
-          </label>
-          <select
-            id="isin-filter"
-            value={filterIsin}
-            onChange={(e) => setFilterIsin(e.target.value)}
-            className="border rounded-md px-2 py-1 bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-          >
-            <option value="all">{t.reviewAll}</option>
-            {allIsins.map((isin) => {
-              const product = transactions.find((tx) => tx.isin === isin)?.product ?? isin;
-              return (
-                <option key={isin} value={isin}>
-                  {product}
-                </option>
-              );
-            })}
-          </select>
+          </Label>
+          <Select value={filterIsin} onValueChange={setFilterIsin}>
+            <SelectTrigger id="isin-filter" className="h-8 w-44 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.reviewAll}</SelectItem>
+              {allIsins.map((isin) => {
+                const product = transactions.find((tx) => tx.isin === isin)?.product ?? isin;
+                return (
+                  <SelectItem key={isin} value={isin}>
+                    {product}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

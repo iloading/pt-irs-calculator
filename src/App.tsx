@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 import { I18nProvider, useI18n } from '@/lib/i18n';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { UploadStep } from '@/components/steps/UploadStep';
 import { ReviewStep } from '@/components/steps/ReviewStep';
@@ -158,7 +159,9 @@ function AppInner() {
 export default function App() {
   return (
     <I18nProvider>
-      <AppInner />
+      <TooltipProvider>
+        <AppInner />
+      </TooltipProvider>
     </I18nProvider>
   );
 }

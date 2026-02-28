@@ -322,7 +322,7 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
 
       {/* Holding period reduction toggle */}
       <div className="rounded-xl border p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h3 className="font-semibold text-sm">{t.resultsHoldingReduction}</h3>
           <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
             <input
@@ -334,12 +334,64 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
             {t.resultsHoldingReductionToggle}
           </label>
         </div>
-        {applyHoldingReductions && (
-          <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-lg p-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            {t.resultsHoldingReductionWarning}
-          </div>
-        )}
+
+        {/* Tier table — always visible */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border rounded-lg overflow-hidden">
+            <thead>
+              <tr className="bg-muted/50 border-b">
+                <th className="px-3 py-2 text-left font-medium">
+                  {lang === 'pt' ? 'Prazo de detenção' : 'Holding period'}
+                </th>
+                <th className="px-3 py-2 text-center font-medium">
+                  {lang === 'pt' ? 'Exclusão da mais-valia' : 'Gain exclusion'}
+                </th>
+                <th className="px-3 py-2 text-center font-medium">
+                  {lang === 'pt' ? 'Tributável' : 'Taxable portion'}
+                </th>
+                <th className="px-3 py-2 text-center font-medium">
+                  {lang === 'pt' ? 'Taxa efetiva' : 'Effective rate'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { period: lang === 'pt' ? '< 2 anos' : '< 2 years',       excl: 0,    active: false },
+                { period: lang === 'pt' ? '2 – 5 anos' : '2 – 5 years',   excl: 0.10, active: true  },
+                { period: lang === 'pt' ? '5 – 8 anos' : '5 – 8 years',   excl: 0.20, active: true  },
+                { period: lang === 'pt' ? '≥ 8 anos' : '≥ 8 years',       excl: 0.30, active: true  },
+              ].map((row) => (
+                <tr
+                  key={row.period}
+                  className={cn(
+                    'border-b last:border-0',
+                    row.active && applyHoldingReductions
+                      ? 'bg-green-500/8 text-green-800 dark:text-green-300'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  <td className="px-3 py-2 font-medium text-foreground">{row.period}</td>
+                  <td className="px-3 py-2 text-center">
+                    {row.excl > 0
+                      ? <span className="font-semibold text-green-700 dark:text-green-400">{(row.excl * 100).toFixed(0)}%</span>
+                      : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {((1 - row.excl) * 100).toFixed(0)}%
+                  </td>
+                  <td className="px-3 py-2 text-center font-medium">
+                    {((1 - row.excl) * 0.28 * 100).toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-start gap-2 text-xs text-muted-foreground">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
+          <span>{t.resultsHoldingReductionWarning}</span>
+        </div>
       </div>
 
       {/* Tax method comparison */}

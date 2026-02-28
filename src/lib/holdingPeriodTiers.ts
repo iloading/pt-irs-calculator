@@ -3,13 +3,13 @@ import type { HoldingTier } from '../types/transaction';
 /**
  * Holding-period exclusion tiers introduced by OE2024 (amendments to CIRS art. 43, n.º 3).
  *
- * ⚠️  DISCLAIMER: These reductions may apply only to shares in micro/small companies
- * or under specific conditions. For widely-traded listed securities (e.g. Tesla, broad ETFs)
- * the applicability must be confirmed with a qualified tax advisor (TOC/ROC).
- * The standard autonomous rate of 28% on the full gain may apply instead.
+ * These reductions apply to ALL listed shares and ETFs.
  *
- * The rules are implemented here so users who DO qualify can immediately see the impact.
- * The app displays a prominent disclaimer and lets the user toggle the reduction on/off.
+ * Only exception (CIRS art. 43, n.º 3 in fine):
+ * If the asset was held for LESS than 365 days AND the taxpayer’s taxable income
+ * equals or exceeds the top IRS bracket (€83,696 in 2025), these exclusions do NOT apply.
+ *
+ * The app does not auto-detect that edge case — a note is shown to the user.
  */
 export const HOLDING_PERIOD_TIERS: HoldingTier[] = [
   {

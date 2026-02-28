@@ -63,6 +63,19 @@ function AppInner() {
     setTaxSummary(null);
   };
 
+  const handleStepClick = (index: number) => {
+    const target = STEPS[index];
+    if (target === 'upload') {
+      setStep('upload');
+    } else if (target === 'review' && parseResult) {
+      setStep('review');
+    } else if (target === 'results' && parseResult) {
+      setStep('results');
+    } else if (target === 'guide' && taxSummary) {
+      setStep('guide');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -108,6 +121,7 @@ function AppInner() {
         <StepIndicator
           steps={stepLabels.map((label, index) => ({ label, index }))}
           currentIndex={stepIndex}
+          onStepClick={handleStepClick}
         />
       </div>
 

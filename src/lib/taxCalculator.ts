@@ -40,7 +40,8 @@ export function marginalRate(income: number): number {
 // ─── Build the full tax summary for a fiscal year ────────────────────────────
 export function buildTaxSummary(
   sales: TaxableSale[],
-  fiscalYear: number
+  fiscalYear: number,
+  priorYearLossEUR = 0,
 ): TaxSummary {
   const totalProceedsEUR = sales.reduce((s, sale) => s + sale.grossProceedsEUR, 0);
   const totalAcquisitionCostEUR = sales.reduce((s, sale) => s + sale.totalAcquisitionCostEUR, 0);
@@ -50,8 +51,11 @@ export function buildTaxSummary(
   const totalRawGainEUR = sales.reduce((s, sale) => s + sale.totalRawGainEUR, 0);
   const totalTaxableGainEUR = sales.reduce((s, sale) => s + sale.totalTaxableGainEUR, 0);
 
+  const priorLoss = Math.max(0, priorYearLossEUR);
+  const adjustedTaxableGainEUR = Math.max(0, totalTaxableGainEUR - priorLoss);
+
   const isNetLoss = totalTaxableGainEUR <= 0;
-  const taxAtAutonomousRate = isNetLoss ? 0 : totalTaxableGainEUR * AUTONOMOUS_RATE;
+  const taxAtAutonomousRate = adjustedTaxableGainEUR > 0 ? adjustedTaxableGainEUR * AUTONOMOUS_RATE : 0;
 
   return {
     fiscalYear,
@@ -63,6 +67,8 @@ export function buildTaxSummary(
     totalFeesEUR,
     totalRawGainEUR,
     totalTaxableGainEUR,
+    priorYearLossEUR: priorLoss,
+    adjustedTaxableGainEUR,
     taxAtAutonomousRate,
     isNetLoss,
   };

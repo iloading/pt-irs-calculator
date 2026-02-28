@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -6,6 +6,7 @@ import {
   TrendingDown,
   TrendingUp,
   AlertTriangle,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -22,6 +23,8 @@ import {
   buildTaxSummary,
 } from '@/lib/taxCalculator';
 import { calculateFIFO } from '@/lib/fifoCalculator';
+import { getAvailableSaleYears } from '@/lib/brokerParser';
+import { openPdfReport } from '@/lib/pdfReport';
 import { cn } from '@/lib/utils';
 import type { FifoMatch, ParseResult, PortfolioLotState, TaxSummary, TaxableSale } from '@/types/transaction';
 
@@ -227,6 +230,9 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
   const [taxMethod, setTaxMethod] = useState<'autonomous' | 'englobamento'>('autonomous');
   const [otherIncome, setOtherIncome] = useState<number>(22000);
   const [irsJovemYear, setIrsJovemYear] = useState<number>(0);
+  const [priorYearLossEUR, setPriorYearLossEUR] = useState<number>(0);
+  const [showPriorLoss, setShowPriorLoss] = useState(false);
+  const [showMultiYear, setShowMultiYear] = useState(false);
 
   function irsJovemExemptionRate(year: number): number {
     if (year === 1) return 1.0;       // 100% — OE2025
@@ -249,8 +255,22 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
     applyHoldingReductions
   );
 
-  const summary = buildTaxSummary(sales, selectedYear);
-  const englobamento = compareEnglobamento(summary.totalTaxableGainEUR, effectiveOtherIncome);
+  const summary = buildTaxSummary(sales, selectedYear, priorYearLossEUR);
+  const englobamento = compareEnglobamento(summary.adjustedTaxableGainEUR, effectiveOtherIncome);
+
+  // Multi-year comparison: compute for all years with sales
+  const allYearsSummaries = useMemo(() => {
+    const years = getAvailableSaleYears(parseResult.transactions);
+    return years.map((year) => {
+      const { sales: ySales } = calculateFIFO(
+        parseResult.transactions,
+        parseResult.splitEvents,
+        year,
+        false,
+      );
+      return { year, summary: buildTaxSummary(ySales, year, 0) };
+    });
+  }, [parseResult]);
 
   const toggleExpand = (isin: string) => {
     setExpandedIsins((prev) => {
@@ -305,8 +325,21 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
         />
         <SummaryCard
           label={t.resultsTaxableGain}
-          value={formatEUR(summary.totalTaxableGainEUR)}
-          variant={summary.totalTaxableGainEUR >= 0 ? 'positive' : 'negative'}
+          value={priorYearLossEUR > 0 ? formatEUR(summary.adjustedTaxableGainEUR) : formatEUR(summary.totalTaxableGainEUR)}
+          crossedValue={priorYearLossEUR > 0 ? formatEUR(summary.totalTaxableGainEUR) : undefined}
+          variant={priorYearLossEUR > 0
+            ? (summary.adjustedTaxableGainEUR >= 0 ? 'positive' : 'negative')
+            : (summary.totalTaxableGainEUR >= 0 ? 'positive' : 'negative')}
+          subValue={priorYearLossEUR > 0
+            ? (lang === 'pt'
+                ? `Após dedução de ${formatEUR(priorYearLossEUR)} em perdas anteriores`
+                : `After deducting ${formatEUR(priorYearLossEUR)} in prior losses`)
+            : undefined}
+          tooltip={priorYearLossEUR > 0
+            ? (lang === 'pt'
+                ? `${formatEUR(summary.totalTaxableGainEUR)} − ${formatEUR(priorYearLossEUR)} = ${formatEUR(summary.adjustedTaxableGainEUR)}`
+                : `${formatEUR(summary.totalTaxableGainEUR)} − ${formatEUR(priorYearLossEUR)} = ${formatEUR(summary.adjustedTaxableGainEUR)}`)
+            : undefined}
         />
         {summary.isNetLoss ? (
           <SummaryCard
@@ -315,6 +348,22 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
             variant="negative"
             subValue={t.resultsLossNote}
           />
+        ) : taxMethod === 'englobamento' ? (
+          <SummaryCard
+            label={lang === 'pt' ? 'Imposto (englobamento)' : 'Tax (englobamento)'}
+            value={formatEUR(englobamento.gainsTaxUnderEnglobamento)}
+            crossedValue={
+              englobamento.gainsTaxUnderEnglobamento !== summary.taxAtAutonomousRate
+                ? formatEUR(summary.taxAtAutonomousRate)
+                : undefined
+            }
+            variant="negative"
+            subValue={`${formatPercent(englobamento.marginalRateOnGains)} · ${
+              englobamento.englobamentoIsBetter
+                ? (lang === 'pt' ? `poupa ${formatEUR(Math.abs(englobamento.saving))} vs 28%` : `saves ${formatEUR(Math.abs(englobamento.saving))} vs 28%`)
+                : (lang === 'pt' ? `+${formatEUR(Math.abs(englobamento.saving))} vs 28%` : `+${formatEUR(Math.abs(englobamento.saving))} vs 28%`)
+            }`}
+          />
         ) : (
           <SummaryCard
             label={t.resultsTax28}
@@ -322,6 +371,71 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
             variant="negative"
           />
         )}
+      </div>
+
+      {/* Prior year carryforward losses */}
+      <div className="rounded-xl border overflow-hidden">
+        <button
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+          onClick={() => setShowPriorLoss((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-sm">{t.priorLossTitle}</h3>
+            {priorYearLossEUR > 0 && (
+              <span className="text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                −{formatEUR(priorYearLossEUR)}
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', showPriorLoss && 'rotate-180')} />
+        </button>
+        <div className={cn('grid transition-all duration-200', showPriorLoss ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+          <div className="overflow-hidden">
+            <div className="px-4 py-3 space-y-3 border-t">
+              <div className="space-y-1.5">
+                <Label className="text-sm">{t.priorLossInput}</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">€</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={priorYearLossEUR || ''}
+                    onChange={(e) => setPriorYearLossEUR(Math.max(0, Number(e.target.value)))}
+                    placeholder="0.00"
+                    className="w-44"
+                  />
+                  {priorYearLossEUR > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPriorYearLossEUR(0)}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+              {priorYearLossEUR > 0 && !summary.isNetLoss && (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="p-2.5 rounded-lg border bg-muted/20">
+                    <div className="text-xs text-muted-foreground">{t.priorLossAdjustedGain}</div>
+                    <div className={cn('font-bold mt-0.5', summary.adjustedTaxableGainEUR >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+                      {formatEUR(summary.adjustedTaxableGainEUR)}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg border bg-green-500/10 border-green-500/30">
+                    <div className="text-xs text-muted-foreground">{t.priorLossSaving}</div>
+                    <div className="font-bold mt-0.5 text-green-600 dark:text-green-400">
+                      {formatEUR(Math.min(priorYearLossEUR, Math.max(0, summary.totalTaxableGainEUR)) * 0.28)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">{t.priorLossNote}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Loss note */}
@@ -516,16 +630,25 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
                     </div>
                     <div className="text-xs text-muted-foreground">28%</div>
                   </div>
-                  <div className="p-3 rounded-lg border bg-card">
-                    <div className="text-muted-foreground text-xs">{t.resultsEnglobamento}</div>
-                    <div
-                      className={cn(
-                        'font-bold text-lg mt-0.5',
-                        englobamento.englobamentoIsBetter
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400'
+                  <div className={cn(
+                    'p-3 rounded-lg border',
+                    englobamento.englobamentoIsBetter
+                      ? 'bg-green-500/5 border-green-500/40'
+                      : 'bg-red-500/5 border-red-500/40'
+                  )}>
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-muted-foreground text-xs">{t.resultsEnglobamento}</div>
+                      {englobamento.englobamentoIsBetter ? (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-700 dark:text-green-400">
+                          {lang === 'pt' ? '▼ poupa' : '▼ saves'} {formatEUR(Math.abs(englobamento.saving))}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+                          ▲ +{formatEUR(Math.abs(englobamento.saving))}
+                        </span>
                       )}
-                    >
+                    </div>
+                    <div className="font-bold text-lg mt-0.5 text-red-600 dark:text-red-400">
                       {formatEUR(englobamento.gainsTaxUnderEnglobamento)}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -568,6 +691,66 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
         <Info className="w-4 h-4 shrink-0 mt-0.5" />
         <span>{t.resultsIRSJovemNote}</span>
       </div>
+
+      {/* Multi-year comparison */}
+      {allYearsSummaries.length > 1 && (
+        <div className="rounded-xl border overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            onClick={() => setShowMultiYear((v) => !v)}
+          >
+            <h3 className="font-semibold text-sm">{t.multiYearTitle}</h3>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', showMultiYear && 'rotate-180')} />
+          </button>
+          <div className={cn('grid transition-all duration-200', showMultiYear ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+            <div className="overflow-hidden">
+              <div className="border-t overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="px-3 py-2 text-left font-medium">{t.multiYearYear}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.multiYearProceeds}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.multiYearCost}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.multiYearGain}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.multiYearTaxableGain}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.multiYearTax}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allYearsSummaries.map(({ year, summary: ys }) => (
+                      <tr
+                        key={year}
+                        className={cn(
+                          'border-b last:border-0',
+                          year === selectedYear && 'bg-primary/5 font-semibold'
+                        )}
+                      >
+                        <td className="px-3 py-2">
+                          {year}
+                          {year === selectedYear && (
+                            <span className="ml-1.5 text-xs text-primary">({t.multiYearCurrent})</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">{formatEUR(ys.totalProceedsEUR)}</td>
+                        <td className="px-3 py-2 text-right">{formatEUR(ys.totalAcquisitionCostEUR)}</td>
+                        <td className={cn('px-3 py-2 text-right', ys.totalRawGainEUR >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+                          {formatEUR(ys.totalRawGainEUR)}
+                        </td>
+                        <td className={cn('px-3 py-2 text-right', ys.totalTaxableGainEUR >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+                          {formatEUR(ys.totalTaxableGainEUR)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-red-600 dark:text-red-400">
+                          {ys.taxAtAutonomousRate > 0 ? formatEUR(ys.taxAtAutonomousRate) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Per-asset breakdown */}
       <div className="space-y-3">
@@ -686,13 +869,24 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
       </div>
 
       {/* Actions */}
-      <div className="flex justify-between">
+      <div className="flex justify-between gap-2 flex-wrap">
         <Button variant="outline" onClick={onBack}>
           {t.back}
         </Button>
-        <Button onClick={() => onContinue(summary)} size="lg">
-          {t.resultsContinue}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openPdfReport(summary, lang)}
+            className="gap-1.5"
+          >
+            <FileDown className="w-4 h-4" />
+            {t.exportPDF}
+          </Button>
+          <Button onClick={() => onContinue(summary)} size="lg">
+            {t.resultsContinue}
+          </Button>
+        </div>
       </div>
     </div>
   );

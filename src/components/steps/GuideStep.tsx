@@ -5,13 +5,14 @@ import {
   Copy,
   Check,
   AlertTriangle,
-  Printer,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useI18n } from '@/lib/i18n';
 import { formatEUR, formatDate } from '@/lib/taxCalculator';
+import { openPdfReport } from '@/lib/pdfReport';
 import { cn } from '@/lib/utils';
 import type { TaxableSale, TaxSummary } from '@/types/transaction';
 
@@ -255,12 +256,13 @@ export function GuideStep({ summary, onBack, onRestart }: GuideStepProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
+              onClick={() => openPdfReport(summary, lang)}
               className="gap-1 print:hidden"
             >
-              <Printer className="w-3.5 h-3.5" />
-              {t.printSummary}
+              <FileDown className="w-3.5 h-3.5" />
+              {t.exportPDF}
             </Button>
+
           </div>
         </div>
         {simplified && (

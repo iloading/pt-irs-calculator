@@ -94,11 +94,13 @@ export interface TaxSummary {
   totalProceedsEUR: number;
   totalAcquisitionCostEUR: number;
   totalSaleFeesEUR: number;
-  totalBuyFeesEUR: number;     // sum of all buy-side fees across matched lots
-  totalFeesEUR: number;        // totalBuyFeesEUR + totalSaleFeesEUR
+  totalBuyFeesEUR: number;
+  totalFeesEUR: number;
   totalRawGainEUR: number;
-  totalTaxableGainEUR: number; // after holding period exclusions
-  taxAtAutonomousRate: number; // taxableGain * 0.28 (only when positive)
+  totalTaxableGainEUR: number;      // after holding period exclusions
+  priorYearLossEUR: number;         // user-supplied carryforward loss
+  adjustedTaxableGainEUR: number;   // max(0, totalTaxableGainEUR - priorYearLossEUR)
+  taxAtAutonomousRate: number;      // adjustedTaxableGain * 0.28
   isNetLoss: boolean;
 }
 

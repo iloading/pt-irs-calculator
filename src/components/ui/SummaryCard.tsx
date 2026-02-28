@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 interface SummaryCardProps {
   label: string;
   value: string;
+  crossedValue?: string;  // shown with strikethrough above value when adjusted
   subValue?: string;
   tooltip?: string;
   variant?: 'default' | 'positive' | 'negative' | 'neutral';
@@ -16,6 +17,7 @@ interface SummaryCardProps {
 export function SummaryCard({
   label,
   value,
+  crossedValue,
   subValue,
   tooltip,
   variant = 'default',
@@ -36,6 +38,9 @@ export function SummaryCard({
         {icon && <span className="opacity-70">{icon}</span>}
         {label}
       </div>
+      {crossedValue && (
+        <div className="text-sm text-muted-foreground line-through">{crossedValue}</div>
+      )}
       <div className="flex items-center gap-2">
         <div
           className={cn(

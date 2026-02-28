@@ -2,9 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Upload, AlertTriangle, CheckCircle2, Loader2, X, ChevronDown, Shield, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { parseBrokerFile, getAvailableSaleYears } from '@/lib/brokerParser';
@@ -128,9 +126,6 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2025);
-  // cross-validation: filename → raw string entered by user
-  const [validationInputs, setValidationInputs] = useState<Record<string, string>>({});
-  const [showValidation, setShowValidation] = useState(false);
 
   // Merge all uploaded files into a single ParseResult
   const combinedResult = useMemo<ParseResult | null>(() => {
@@ -225,18 +220,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       if (years.length > 0) setSelectedYear(years[0]);
       return next;
     });
-    setValidationInputs((prev) => {
-      const next = { ...prev };
-      delete next[name];
-      return next;
-    });
   };
-
-  // Compute sell total per file for cross-validation
-  const getSellTotal = (file: UploadedFile) =>
-    file.result.transactions
-      .filter((tx) => tx.isSell)
-      .reduce((s, tx) => s + tx.eurValue, 0);
 
   const totalTransactions = combinedResult?.transactions.length ?? 0;
 
@@ -400,12 +384,6 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       {uploadedFiles.length > 0 && (
         <div className="space-y-3">
           {uploadedFiles.map((file) => {
-            const calcTotal = getSellTotal(file);
-            const inputVal = validationInputs[file.name] ?? '';
-            const brokerTotal = inputVal !== '' ? parseFloat(inputVal.replace(',', '.')) : null;
-            const diff = brokerTotal !== null ? Math.abs(brokerTotal - calcTotal) : null;
-            const isMatch = diff !== null && diff < 0.02;
-            const isMismatch = diff !== null && diff >= 0.02;
             return (
               <div key={file.name} className="rounded-xl border border-green-500/30 bg-green-500/10 overflow-hidden">
                 {/* File header row */}
@@ -440,74 +418,20 @@ export function UploadStep({ onComplete }: UploadStepProps) {
                   </Button>
                 </div>
 
-                {/* Cross-validation row (only when panel is open) */}
-                {showValidation && (
-                  <div className="px-3 pb-3 pt-0 border-t border-green-500/20 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-xs text-muted-foreground shrink-0">
-                        {t.validateLabel}
-                      </label>
-                      <div className="flex items-center gap-1 flex-1 min-w-[160px]">
-                        <span className="text-muted-foreground text-xs">€</span>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          placeholder={calcTotal.toFixed(2)}
-                          value={inputVal}
-                          onChange={(e) =>
-                            setValidationInputs((prev) => ({ ...prev, [file.name]: e.target.value }))
-                          }
-                          className="h-7 text-xs w-32"
-                        />
-                      </div>
-                      {isMatch && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                          {t.validateMatch}
-                        </span>
-                      )}
-                      {isMismatch && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                          {t.validateMismatch} €{diff!.toFixed(2)} {t.validateMismatchDetail}
-                        </span>
-                      )}
-                    </div>
-                    {brokerTotal !== null && (
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>{t.validateBrokerTotal}: <strong className="text-foreground">€{brokerTotal.toFixed(2)}</strong></span>
-                        <span>{t.validateCalcTotal}: <strong className="text-foreground">€{calcTotal.toFixed(2)}</strong></span>
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </div>
             );
           })}
 
-          {/* Validation toggle + combined summary */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox
-                id="show-validation"
-                checked={showValidation}
-                onCheckedChange={(v) => setShowValidation(!!v)}
-              />
-              <Label htmlFor="show-validation" className="text-xs text-muted-foreground cursor-pointer">
-                {t.validateTitle}
-              </Label>
+          {uploadedFiles.length > 1 && (
+            <div className="text-sm text-muted-foreground text-right">
+              <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
+              {t.uploadTotalTransactions}
+              {' · '}
+              <span className="font-semibold text-foreground">{uploadedFiles.length}</span>{' '}
+              {t.uploadFilesLoaded}
             </div>
-            {uploadedFiles.length > 1 && (
-              <div className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
-                {t.uploadTotalTransactions}
-                {' · '}
-                <span className="font-semibold text-foreground">{uploadedFiles.length}</span>{' '}
-                {t.uploadFilesLoaded}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
 

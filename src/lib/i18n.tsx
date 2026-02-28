@@ -5,7 +5,7 @@ export type Language = 'pt' | 'en';
 const translations = {
   pt: {
     // App shell
-    appTitle: 'Calculadora IRS — Mais-Valias DeGiro',
+    appTitle: 'Calculadora IRS — Mais-Valias',
     appSubtitle: 'Plataforma para calcular e declarar mais-valias de investimentos estrangeiros no IRS português.',
     langToggle: 'EN',
 
@@ -209,9 +209,30 @@ const translations = {
    □  Comprovativo de submissão guardado`,
 
     days: 'dias',
-    printSummary: 'Imprimir resumo',
+    exportPDF: 'Exportar PDF',
     darkMode: 'Modo escuro',
     lightMode: 'Modo claro',
+
+    // Prior year losses
+    priorLossTitle: 'Perdas reportáveis de anos anteriores',
+    priorLossToggle: 'Tenho perdas de anos anteriores a reportar',
+    priorLossInput: 'Total de perdas acumuladas (€)',
+    priorLossNote: 'As perdas de Cat. G podem ser reportadas durante 5 anos (CIRS art. 55). Consulte as suas declarações anteriores para apurar o valor correto.',
+    priorLossAdjustedGain: 'Mais-valia tributável ajustada',
+    priorLossSaving: 'Poupança fiscal estimada',
+
+    // Multi-year comparison
+    multiYearTitle: 'Comparação multi-ano',
+    multiYearShow: 'Mostrar evolução anual',
+    multiYearHide: 'Ocultar evolução anual',
+    multiYearYear: 'Ano',
+    multiYearProceeds: 'Realizações',
+    multiYearCost: 'Custo',
+    multiYearGain: 'Mais-valia bruta',
+    multiYearTaxableGain: 'Tributável',
+    multiYearTax: 'Imposto (28%)',
+    multiYearCurrent: 'Selecionado',
+
     validateTitle: 'Validação cruzada (opcional)',
     validateDesc: 'Introduza o total de realizações que o broker reporta para verificar se todos os movimentos foram detetados.',
     validateLabel: 'Total realizações reportado pelo broker (€)',
@@ -419,9 +440,30 @@ const translations = {
    □  Submission receipt saved`,
 
     days: 'days',
-    printSummary: 'Print summary',
+    exportPDF: 'Export PDF',
     darkMode: 'Dark mode',
     lightMode: 'Light mode',
+
+    // Prior year losses
+    priorLossTitle: 'Prior year carryforward losses',
+    priorLossToggle: 'I have prior year losses to carry forward',
+    priorLossInput: 'Total accumulated losses (€)',
+    priorLossNote: 'Category G losses can be carried forward for 5 years (CIRS art. 55). Check your previous tax returns for the correct figure.',
+    priorLossAdjustedGain: 'Adjusted taxable gain',
+    priorLossSaving: 'Estimated tax saving',
+
+    // Multi-year comparison
+    multiYearTitle: 'Multi-year comparison',
+    multiYearShow: 'Show annual history',
+    multiYearHide: 'Hide annual history',
+    multiYearYear: 'Year',
+    multiYearProceeds: 'Proceeds',
+    multiYearCost: 'Cost',
+    multiYearGain: 'Gross gain',
+    multiYearTaxableGain: 'Taxable',
+    multiYearTax: 'Tax (28%)',
+    multiYearCurrent: 'Selected',
+
     validateTitle: 'Cross-validation (optional)',
     validateDesc: "Enter the broker's reported total proceeds to verify all transactions were detected.",
     validateLabel: 'Total proceeds reported by broker (€)',

@@ -77,6 +77,46 @@ function buildFilingRows(sales: TaxableSale[]): FilingRow[] {
   return rows;
 }
 
+// ─── Build simplified rows: group by (ISIN + saleDate + exclusionRate) ────────
+function buildSimplifiedRows(sales: TaxableSale[]): FilingRow[] {
+  const groupMap = new Map<string, FilingRow>();
+  const groupOrder: string[] = [];
+
+  for (const sale of sales) {
+    for (const m of sale.fifoMatches) {
+      const key = `${sale.isin}__${sale.saleDate.toISOString().slice(0, 10)}__${m.holdingTier.exclusionRate}`;
+      if (!groupMap.has(key)) {
+        groupOrder.push(key);
+        groupMap.set(key, {
+          saleDate: sale.saleDate,
+          countryCode: sale.countryCode,
+          isin: sale.isin,
+          product: sale.product,
+          acquisitionDate: m.lotAcquisitionDate,
+          realizationValue: 0,
+          acquisitionCost: 0,
+          rawGain: 0,
+          quantityMatched: 0,
+          totalSaleQty: sale.totalQuantitySold,
+          holdingTierLabel: m.holdingTier.labelPT,
+          exclusionRate: m.holdingTier.exclusionRate,
+        });
+      }
+      const row = groupMap.get(key)!;
+      row.realizationValue += m.saleValueEUR;
+      row.acquisitionCost += m.acquisitionCostEUR;
+      row.rawGain += m.rawGainEUR;
+      row.quantityMatched += m.quantityMatched;
+      // Keep earliest acquisition date in the group
+      if (m.lotAcquisitionDate < row.acquisitionDate) {
+        row.acquisitionDate = m.lotAcquisitionDate;
+      }
+    }
+  }
+
+  return groupOrder.map((k) => groupMap.get(k)!);
+}
+
 // ─── Copy-to-clipboard cell helper ───────────────────────────────────────────
 function CopyCell({ value }: { value: string }) {
   const { t } = useI18n();
@@ -152,7 +192,10 @@ function GuideAccordion({
 // ─── Main component ───────────────────────────────────────────────────────────
 export function GuideStep({ summary, onBack, onRestart }: GuideStepProps) {
   const { t, lang } = useI18n();
-  const filingRows = buildFilingRows(summary.sales);
+  const [simplified, setSimplified] = useState(false);
+  const allFilingRows = buildFilingRows(summary.sales);
+  const simplifiedFilingRows = buildSimplifiedRows(summary.sales);
+  const filingRows = simplified ? simplifiedFilingRows : allFilingRows;
   const hasMultipleLots = summary.sales.some((s) => s.fifoMatches.length > 1);
 
   const guideSteps = [
@@ -188,18 +231,41 @@ export function GuideStep({ summary, onBack, onRestart }: GuideStepProps) {
 
       {/* Quick reference filing table */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <h3 className="font-semibold">{t.guideFilingTable}</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="gap-1 print:hidden"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            {t.printSummary}
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm">
+              <input
+                type="checkbox"
+                checked={simplified}
+                onChange={(e) => setSimplified(e.target.checked)}
+                className="w-4 h-4 accent-primary"
+              />
+              <span className="font-medium">{t.guideSimplifyToggle}</span>
+              {simplified && (
+                <span className="text-xs text-muted-foreground">
+                  {t.guideSimplifyRows(simplifiedFilingRows.length)}{' '}
+                  {t.guideDetailedRows(allFilingRows.length)}
+                </span>
+              )}
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="gap-1 print:hidden"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              {t.printSummary}
+            </Button>
+          </div>
         </div>
+        {simplified && (
+          <div className="flex items-start gap-2 text-xs p-3 rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            {t.guideSimplifyNote}
+          </div>
+        )}
         <div className="overflow-x-auto rounded-xl border print:border-black">
           <table className="w-full text-sm">
             <thead>

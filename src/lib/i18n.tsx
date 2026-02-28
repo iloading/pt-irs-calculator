@@ -123,6 +123,10 @@ const translations = {
     guideColAcqCost: 'Custo aquis. (€)',
     guideColGain: 'Mais-valia (€)',
     guideMultipleLotsNote: 'Esta venda consumiu vários lotes FIFO com datas de aquisição diferentes. Deverá preencher uma linha por lote no Quadro 9.2.',
+    guideSimplifyToggle: 'Vista simplificada (menos linhas)',
+    guideSimplifyNote: 'Modo simplificado: lotes com o mesmo escalão de detenção e mesma data de venda são agrupados numa só linha. Usa a data de aquisição mais antiga do grupo e soma os valores de realização e de aquisição. O total final mantém-se idêntico.',
+    guideSimplifyRows: (n: number) => `${n} linha${n !== 1 ? 's' : ''} em vez de`,
+    guideDetailedRows: (n: number) => `${n} (modo detalhado)`,
 
     // Guide steps
     guideStep1Title: 'Passo 1 — Aceder ao Portal das Finanças',
@@ -320,6 +324,10 @@ const translations = {
     guideColAcqCost: 'Acq. cost (€)',
     guideColGain: 'Capital gain (€)',
     guideMultipleLotsNote: 'This sale consumed multiple FIFO lots with different acquisition dates. You must enter one row per lot in Quadro 9.2.',
+    guideSimplifyToggle: 'Simplified view (fewer rows)',
+    guideSimplifyNote: 'Simplified mode: lots with the same holding tier and the same sale date are merged into one row. Uses the earliest acquisition date in the group and sums realization and acquisition values. The final totals remain identical.',
+    guideSimplifyRows: (n: number) => `${n} row${n !== 1 ? 's' : ''} instead of`,
+    guideDetailedRows: (n: number) => `${n} (detailed mode)`,
 
     guideStep1Title: 'Step 1 — Access the Portal das Finanças',
     guideStep2Title: 'Step 2 — Start the IRS declaration',

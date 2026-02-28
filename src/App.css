@@ -1,0 +1,8 @@
+/* App-level overrides — shadcn/ui handles the rest via index.css */
+@media print {
+  header,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+}

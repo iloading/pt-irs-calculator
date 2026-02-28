@@ -24,6 +24,9 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2025);
+  // cross-validation: filename → raw string entered by user
+  const [validationInputs, setValidationInputs] = useState<Record<string, string>>({});
+  const [showValidation, setShowValidation] = useState(false);
 
   // Merge all uploaded files into a single ParseResult
   const combinedResult = useMemo<ParseResult | null>(() => {
@@ -118,7 +121,18 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       if (years.length > 0) setSelectedYear(years[0]);
       return next;
     });
+    setValidationInputs((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
   };
+
+  // Compute sell total per file for cross-validation
+  const getSellTotal = (file: UploadedFile) =>
+    file.result.transactions
+      .filter((tx) => tx.isSell)
+      .reduce((s, tx) => s + tx.eurValue, 0);
 
   const totalTransactions = combinedResult?.transactions.length ?? 0;
 
@@ -194,51 +208,113 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
       {/* Uploaded files list */}
       {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          {uploadedFiles.map((file) => (
-            <div
-              key={file.name}
-              className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/30"
-            >
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-green-700 dark:text-green-400 truncate text-sm">
-                    {file.name}
-                  </p>
-                  <span className={cn(
-                    'text-xs font-semibold px-2 py-0.5 rounded-full shrink-0',
-                    file.format === 'degiro'
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                      : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                  )}>
-                    {file.format === 'degiro' ? t.uploadBrokerDeGiro : t.uploadBrokerTR}
-                  </span>
+        <div className="space-y-3">
+          {uploadedFiles.map((file) => {
+            const calcTotal = getSellTotal(file);
+            const inputVal = validationInputs[file.name] ?? '';
+            const brokerTotal = inputVal !== '' ? parseFloat(inputVal.replace(',', '.')) : null;
+            const diff = brokerTotal !== null ? Math.abs(brokerTotal - calcTotal) : null;
+            const isMatch = diff !== null && diff < 0.02;
+            const isMismatch = diff !== null && diff >= 0.02;
+            return (
+              <div key={file.name} className="rounded-xl border border-green-500/30 bg-green-500/10 overflow-hidden">
+                {/* File header row */}
+                <div className="flex items-center gap-3 p-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-green-700 dark:text-green-400 truncate text-sm">
+                        {file.name}
+                      </p>
+                      <span className={cn(
+                        'text-xs font-semibold px-2 py-0.5 rounded-full shrink-0',
+                        file.format === 'degiro'
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                      )}>
+                        {file.format === 'degiro' ? t.uploadBrokerDeGiro : t.uploadBrokerTR}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {file.result.transactions.length} {t.uploadRows}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
+                    className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title={t.uploadRemoveFile}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {file.result.transactions.length} {t.uploadRows}
-                </p>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
-                className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title={t.uploadRemoveFile}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
 
-          {/* Combined summary when >1 file */}
-          {uploadedFiles.length > 1 && (
-            <div className="p-3 rounded-lg border bg-muted/30 text-sm text-center text-muted-foreground">
-              <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
-              {t.uploadTotalTransactions}
-              {' · '}
-              <span className="font-semibold text-foreground">{uploadedFiles.length}</span>{' '}
-              {t.uploadFilesLoaded}
-            </div>
-          )}
+                {/* Cross-validation row (only when panel is open) */}
+                {showValidation && (
+                  <div className="px-3 pb-3 pt-0 border-t border-green-500/20 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="text-xs text-muted-foreground shrink-0">
+                        {t.validateLabel}
+                      </label>
+                      <div className="flex items-center gap-1 flex-1 min-w-[160px]">
+                        <span className="text-muted-foreground text-xs">€</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder={calcTotal.toFixed(2)}
+                          value={inputVal}
+                          onChange={(e) =>
+                            setValidationInputs((prev) => ({ ...prev, [file.name]: e.target.value }))
+                          }
+                          className="border rounded px-2 py-1 text-xs bg-background w-32 focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      {isMatch && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          {t.validateMatch}
+                        </span>
+                      )}
+                      {isMismatch && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          {t.validateMismatch} €{diff!.toFixed(2)} {t.validateMismatchDetail}
+                        </span>
+                      )}
+                    </div>
+                    {brokerTotal !== null && (
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>{t.validateBrokerTotal}: <strong className="text-foreground">€{brokerTotal.toFixed(2)}</strong></span>
+                        <span>{t.validateCalcTotal}: <strong className="text-foreground">€{calcTotal.toFixed(2)}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Validation toggle + combined summary */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showValidation}
+                onChange={(e) => setShowValidation(e.target.checked)}
+                className="w-3.5 h-3.5 accent-primary"
+              />
+              {t.validateTitle}
+            </label>
+            {uploadedFiles.length > 1 && (
+              <div className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
+                {t.uploadTotalTransactions}
+                {' · '}
+                <span className="font-semibold text-foreground">{uploadedFiles.length}</span>{' '}
+                {t.uploadFilesLoaded}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

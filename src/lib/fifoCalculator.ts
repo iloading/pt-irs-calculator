@@ -123,7 +123,7 @@ function processSell(
     });
   }
 
-  if (remainingToSell > 0) {
+  if (remainingToSell > 1e-9) {
     warnings.push(
       `Could not find enough acquisition lots for ${tx.product} (ISIN ${tx.isin}) ` +
         `on ${tx.date.toISOString().slice(0, 10)}. ` +

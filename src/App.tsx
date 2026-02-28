@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { I18nProvider, useI18n } from '@/lib/i18n';
 import { StepIndicator } from '@/components/ui/StepIndicator';
@@ -12,6 +12,20 @@ const STEPS: WizardStep[] = ['upload', 'review', 'results', 'guide'];
 
 function AppInner() {
   const { t, lang, setLang } = useI18n();
+
+  // ─── Dark mode ────────────────────────────────────────────────────────────
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [step, setStep] = useState<WizardStep>('upload');
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -56,12 +70,35 @@ function AppInner() {
           <div>
             <h1 className="text-base font-bold leading-tight">{t.appTitle}</h1>
           </div>
-          <button
-            onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
-            className="px-3 py-1 text-xs font-semibold rounded-md border border-border hover:bg-muted transition-colors"
-          >
-            {t.langToggle}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="p-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+              title={dark ? t.lightMode : t.darkMode}
+              aria-label={dark ? t.lightMode : t.darkMode}
+            >
+              {dark ? (
+                // Sun icon
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+              ) : (
+                // Moon icon
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+              )}
+            </button>
+            {/* Language toggle */}
+            <button
+              onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
+              className="px-3 py-1 text-xs font-semibold rounded-md border border-border hover:bg-muted transition-colors"
+            >
+              {t.langToggle}
+            </button>
+          </div>
         </div>
       </header>
 

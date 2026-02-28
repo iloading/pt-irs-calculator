@@ -210,6 +210,16 @@ const translations = {
 
     days: 'dias',
     printSummary: 'Imprimir resumo',
+    darkMode: 'Modo escuro',
+    lightMode: 'Modo claro',
+    validateTitle: 'Validação cruzada (opcional)',
+    validateDesc: 'Introduza o total de realizações que o broker reporta para verificar se todos os movimentos foram detetados.',
+    validateLabel: 'Total realizações reportado pelo broker (€)',
+    validateMatch: 'Totais coincidem',
+    validateMismatch: 'Diferença de',
+    validateMismatchDetail: '— podem existir movimentos em falta ou duplicados',
+    validateBrokerTotal: 'Reportado',
+    validateCalcTotal: 'Calculado',
   },
   en: {
     appTitle: 'IRS Calculator — Capital Gains DeGiro',
@@ -410,6 +420,16 @@ const translations = {
 
     days: 'days',
     printSummary: 'Print summary',
+    darkMode: 'Dark mode',
+    lightMode: 'Light mode',
+    validateTitle: 'Cross-validation (optional)',
+    validateDesc: "Enter the broker's reported total proceeds to verify all transactions were detected.",
+    validateLabel: 'Total proceeds reported by broker (€)',
+    validateMatch: 'Totals match',
+    validateMismatch: 'Difference of',
+    validateMismatchDetail: '— some transactions may be missing or duplicated',
+    validateBrokerTotal: 'Reported',
+    validateCalcTotal: 'Calculated',
   },
 } as const;
 

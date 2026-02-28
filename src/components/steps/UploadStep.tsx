@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
-import { Upload, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Upload, FileText, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
-import { parseDeGiroCSV, getAvailableSaleYears } from '@/lib/csvParser';
+import { parseBrokerFile, getAvailableSaleYears } from '@/lib/brokerParser';
+import type { BrokerFormat } from '@/lib/brokerParser';
 import type { ParseResult } from '@/types/transaction';
 
 interface UploadStepProps {
@@ -14,37 +15,45 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [brokerFormat, setBrokerFormat] = useState<BrokerFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [fileName, setFileName] = useState<string>('');
 
   const processFile = useCallback(
-    (file: File) => {
-      if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
-        setError(t.uploadInvalidFile);
-        return;
-      }
+    async (file: File) => {
       setFileName(file.name);
       setError(null);
+      setParseResult(null);
+      setBrokerFormat(null);
+      setIsProcessing(true);
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        try {
-          const result = parseDeGiroCSV(text);
-          if (result.transactions.length === 0) {
-            setError(t.uploadInvalidFile);
-            return;
-          }
-          const years = getAvailableSaleYears(result.transactions);
-          const defaultYear = years.length > 0 ? years[0] : 2025;
-          setSelectedYear(defaultYear);
-          setParseResult(result);
-        } catch {
-          setError(t.uploadInvalidFile);
+      try {
+        const { format, result } = await parseBrokerFile(file);
+
+        if (result.transactions.length === 0) {
+          setError(
+            result.warnings.length > 0
+              ? result.warnings[0]
+              : t.uploadInvalidFile
+          );
+          setIsProcessing(false);
+          return;
         }
-      };
-      reader.readAsText(file, 'UTF-8');
+
+        const years = getAvailableSaleYears(result.transactions);
+        const defaultYear = years.length > 0 ? years[0] : 2025;
+        setSelectedYear(defaultYear);
+        setBrokerFormat(format);
+        setParseResult(result);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : t.uploadInvalidFile
+        );
+      } finally {
+        setIsProcessing(false);
+      }
     },
     [t]
   );
@@ -54,7 +63,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files[0];
-      if (file) processFile(file);
+      if (file) void processFile(file);
     },
     [processFile]
   );
@@ -62,7 +71,9 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) processFile(file);
+      if (file) void processFile(file);
+      // Reset input so the same file can be re-selected after an error
+      e.target.value = '';
     },
     [processFile]
   );
@@ -89,29 +100,46 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={cn(
-          'border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 transition-colors cursor-pointer',
+          'border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 transition-colors',
+          isProcessing
+            ? 'cursor-not-allowed opacity-60'
+            : 'cursor-pointer',
           isDragging
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30'
         )}
-        onClick={() => document.getElementById('csv-input')?.click()}
+        onClick={() => !isProcessing && document.getElementById('csv-input')?.click()}
       >
         <div className="p-3 rounded-full bg-muted">
-          <Upload className="w-7 h-7 text-muted-foreground" />
+          {isProcessing
+            ? <Loader2 className="w-7 h-7 text-primary animate-spin" />
+            : <Upload className="w-7 h-7 text-muted-foreground" />
+          }
         </div>
         <div className="text-center">
-          <p className="font-medium">{t.uploadDrop}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t.uploadOr}{' '}
-            <span className="text-primary underline cursor-pointer">{t.uploadBrowse}</span>
-          </p>
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
+              <p className="font-medium mt-2">{t.uploadProcessing}</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">{t.uploadDrop}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t.uploadOr}{' '}
+                <span className="text-primary underline cursor-pointer">{t.uploadBrowse}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">{t.uploadSupportedFormats}</p>
+            </>
+          )}
         </div>
         <input
           id="csv-input"
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.pdf,text/csv,application/pdf"
           className="hidden"
           onChange={handleFileInput}
+          disabled={isProcessing}
         />
       </div>
 
@@ -129,10 +157,22 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           {/* Success banner */}
           <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
             <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-            <div>
-              <p className="font-semibold text-green-700 dark:text-green-400">
-                {t.uploadAccepted}: <span className="font-normal">{fileName}</span>
-              </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-green-700 dark:text-green-400">
+                  {t.uploadAccepted}: <span className="font-normal">{fileName}</span>
+                </p>
+                {brokerFormat && (
+                  <span className={cn(
+                    'text-xs font-semibold px-2 py-0.5 rounded-full',
+                    brokerFormat === 'degiro'
+                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                  )}>
+                    {brokerFormat === 'degiro' ? t.uploadBrokerDeGiro : t.uploadBrokerTR}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">
                 {totalTransactions} {t.uploadRows}
               </p>

@@ -20,8 +20,8 @@ const translations = {
 
     // Upload
     uploadTitle: 'Carregar histórico de transações',
-    uploadDesc: 'Carregue o ficheiro CSV exportado do DeGiro. Os dados são processados localmente no seu browser — nunca saem do seu dispositivo.',
-    uploadDrop: 'Arraste e largue o ficheiro CSV aqui',
+    uploadDesc: 'Carregue o ficheiro CSV do DeGiro ou o PDF do extrato da Trade Republic. Os dados são processados localmente no seu browser — nunca saem do seu dispositivo.',
+    uploadDrop: 'Arraste e largue o ficheiro aqui',
     uploadOr: 'ou',
     uploadBrowse: 'Selecionar ficheiro',
     uploadAccepted: 'Ficheiro aceite',
@@ -30,7 +30,11 @@ const translations = {
     uploadSplits: 'Eventos de stock split',
     uploadWarnings: 'Avisos',
     uploadContinue: 'Continuar para revisão',
-    uploadInvalidFile: 'Ficheiro inválido. Por favor carregue um CSV do DeGiro.',
+    uploadInvalidFile: 'Ficheiro não reconhecido. Carregue um CSV do DeGiro ou o PDF do extrato vitalício da Trade Republic.',
+    uploadProcessing: 'A processar ficheiro…',
+    uploadBrokerDeGiro: 'DeGiro CSV',
+    uploadBrokerTR: 'Trade Republic PDF',
+    uploadSupportedFormats: 'Formatos suportados: DeGiro CSV (.csv) · Trade Republic Extrato de conta (.pdf)',
 
     // Review
     reviewTitle: 'Rever transações',
@@ -212,8 +216,8 @@ const translations = {
     restart: 'Start Over',
 
     uploadTitle: 'Upload transaction history',
-    uploadDesc: 'Upload the CSV file exported from DeGiro. Data is processed locally in your browser — it never leaves your device.',
-    uploadDrop: 'Drag and drop your CSV file here',
+    uploadDesc: 'Upload your DeGiro CSV or Trade Republic account statement PDF. Data is processed locally in your browser — it never leaves your device.',
+    uploadDrop: 'Drag and drop your file here',
     uploadOr: 'or',
     uploadBrowse: 'Browse file',
     uploadAccepted: 'File accepted',
@@ -222,7 +226,11 @@ const translations = {
     uploadSplits: 'Stock split events',
     uploadWarnings: 'Warnings',
     uploadContinue: 'Continue to review',
-    uploadInvalidFile: 'Invalid file. Please upload a DeGiro CSV export.',
+    uploadInvalidFile: 'Unrecognised file. Please upload a DeGiro CSV or the Trade Republic lifetime account statement PDF.',
+    uploadProcessing: 'Processing file…',
+    uploadBrokerDeGiro: 'DeGiro CSV',
+    uploadBrokerTR: 'Trade Republic PDF',
+    uploadSupportedFormats: 'Supported formats: DeGiro CSV (.csv) · Trade Republic Account Statement (.pdf)',
 
     reviewTitle: 'Review transactions',
     reviewDesc: 'Verify the imported transactions before calculating taxes.',

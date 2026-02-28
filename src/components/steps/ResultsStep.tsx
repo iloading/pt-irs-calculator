@@ -19,7 +19,7 @@ import {
 } from '@/lib/taxCalculator';
 import { calculateFIFO } from '@/lib/fifoCalculator';
 import { cn } from '@/lib/utils';
-import type { FifoMatch, ParseResult, PortfolioLotState, TaxSummary } from '@/types/transaction';
+import type { FifoMatch, ParseResult, PortfolioLotState, TaxSummary, TaxableSale } from '@/types/transaction';
 
 interface ResultsStepProps {
   parseResult: ParseResult;
@@ -580,63 +580,100 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale, idx) => {
-                const expandKey = `${sale.isin}-${idx}`;
-                const isExpanded = expandedIsins.has(expandKey);
-                return (
-                  <>
-                    <tr
-                      key={expandKey}
-                      className="border-b last:border-0 hover:bg-muted/20 cursor-pointer"
-                      onClick={() => toggleExpand(expandKey)}
-                    >
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                      </td>
-                      <td className="px-3 py-2 font-medium">{sale.product}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{sale.isin}</td>
-                      <td className="px-3 py-2 text-right">{formatEUR(sale.grossProceedsEUR)}</td>
-                      <td className="px-3 py-2 text-right">{formatEUR(sale.totalAcquisitionCostEUR)}</td>
-                      <td
-                        className={cn(
-                          'px-3 py-2 text-right font-medium',
-                          sale.totalRawGainEUR >= 0
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
+              {(() => {
+                // Group multiple sell transactions for the same ISIN into one row
+                const isinOrder: string[] = [];
+                const grouped = new Map<string, {
+                  isin: string;
+                  product: string;
+                  grossProceedsEUR: number;
+                  totalAcquisitionCostEUR: number;
+                  totalRawGainEUR: number;
+                  totalTaxableGainEUR: number;
+                  holdingPeriodReductionApplied: boolean;
+                  fifoMatches: TaxableSale['fifoMatches'];
+                }>();
+                for (const sale of sales) {
+                  if (!grouped.has(sale.isin)) {
+                    isinOrder.push(sale.isin);
+                    grouped.set(sale.isin, {
+                      isin: sale.isin,
+                      product: sale.product,
+                      grossProceedsEUR: 0,
+                      totalAcquisitionCostEUR: 0,
+                      totalRawGainEUR: 0,
+                      totalTaxableGainEUR: 0,
+                      holdingPeriodReductionApplied: false,
+                      fifoMatches: [],
+                    });
+                  }
+                  const g = grouped.get(sale.isin)!;
+                  g.grossProceedsEUR += sale.grossProceedsEUR;
+                  g.totalAcquisitionCostEUR += sale.totalAcquisitionCostEUR;
+                  g.totalRawGainEUR += sale.totalRawGainEUR;
+                  g.totalTaxableGainEUR += sale.totalTaxableGainEUR;
+                  g.holdingPeriodReductionApplied ||= sale.holdingPeriodReductionApplied;
+                  g.fifoMatches = g.fifoMatches.concat(sale.fifoMatches);
+                }
+                return isinOrder.map((isin) => {
+                  const sale = grouped.get(isin)!;
+                  const expandKey = isin;
+                  const isExpanded = expandedIsins.has(expandKey);
+                  return (
+                    <>
+                      <tr
+                        key={expandKey}
+                        className="border-b last:border-0 hover:bg-muted/20 cursor-pointer"
+                        onClick={() => toggleExpand(expandKey)}
                       >
-                        {formatEUR(sale.totalRawGainEUR)}
-                      </td>
-                      <td
-                        className={cn(
-                          'px-3 py-2 text-right font-semibold',
-                          sale.totalTaxableGainEUR >= 0
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        )}
-                      >
-                        {formatEUR(sale.totalTaxableGainEUR)}
-                        {sale.holdingPeriodReductionApplied && (
-                          <span className="ml-1 text-xs text-blue-500">↓</span>
-                        )}
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <AllLotsDetail
-                        key={`lots-${expandKey}`}
-                        matches={sale.fifoMatches}
-                        portfolioLots={portfolioSnapshot.get(sale.isin) ?? []}
-                        t={t}
-                        lang={lang}
-                      />
-                    )}
-                  </>
-                );
-              })}
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-medium">{sale.product}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{sale.isin}</td>
+                        <td className="px-3 py-2 text-right">{formatEUR(sale.grossProceedsEUR)}</td>
+                        <td className="px-3 py-2 text-right">{formatEUR(sale.totalAcquisitionCostEUR)}</td>
+                        <td
+                          className={cn(
+                            'px-3 py-2 text-right font-medium',
+                            sale.totalRawGainEUR >= 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          )}
+                        >
+                          {formatEUR(sale.totalRawGainEUR)}
+                        </td>
+                        <td
+                          className={cn(
+                            'px-3 py-2 text-right font-semibold',
+                            sale.totalTaxableGainEUR >= 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          )}
+                        >
+                          {formatEUR(sale.totalTaxableGainEUR)}
+                          {sale.holdingPeriodReductionApplied && (
+                            <span className="ml-1 text-xs text-blue-500">↓</span>
+                          )}
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <AllLotsDetail
+                          key={`lots-${expandKey}`}
+                          matches={sale.fifoMatches}
+                          portfolioLots={portfolioSnapshot.get(sale.isin) ?? []}
+                          t={t}
+                          lang={lang}
+                        />
+                      )}
+                    </>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         </div>

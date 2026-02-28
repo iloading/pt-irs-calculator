@@ -160,10 +160,23 @@ function AppInner() {
 
       {/* Footer */}
       <footer className="border-t mt-12 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 py-4 text-xs text-muted-foreground text-center">
-          {lang === 'pt'
-            ? 'Para fins informativos apenas. Confirme sempre com um TOC/ROC antes de submeter a sua declaração.'
-            : 'For informational purposes only. Always confirm with a certified accountant before submitting your declaration.'}
+        <div className="max-w-7xl mx-auto px-4 py-4 text-xs text-muted-foreground text-center space-y-1">
+          <p>
+            {lang === 'pt'
+              ? 'Para fins informativos apenas. Confirme sempre com um TOC/ROC antes de submeter a sua declaração.'
+              : 'For informational purposes only. Always confirm with a certified accountant before submitting your declaration.'}
+          </p>
+          <p>
+            {lang === 'pt' ? 'Feito por ' : 'Made by '}
+            <a
+              href="https://github.com/iloading"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground/70 hover:text-foreground transition-colors"
+            >
+              @iloading
+            </a>
+          </p>
         </div>
       </footer>
     </div>

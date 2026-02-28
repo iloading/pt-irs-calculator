@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Upload, FileText, AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
+import { Upload, AlertTriangle, CheckCircle2, Loader2, X, ChevronDown, Shield, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,6 +10,106 @@ import { useI18n } from '@/lib/i18n';
 import { parseBrokerFile, getAvailableSaleYears } from '@/lib/brokerParser';
 import type { BrokerFormat } from '@/lib/brokerParser';
 import type { ParseResult } from '@/types/transaction';
+
+// ─── DeGiro logo (official SVG) ──────────────────────────────────────────────
+function DeGiroIcon() {
+  return (
+    <svg viewBox="0 0 1024 1024" className="w-8 h-8 rounded-lg shrink-0" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="512" cy="512" r="512" fill="#009fdf"/>
+      <path d="M767.8 482.4H256.3V358.7h511.5v123.7zm-511.5 59.2v123.7h511.5V541.6H256.3z" fill="#fff"/>
+    </svg>
+  );
+}
+
+// ─── Trade Republic logo (official SVG) ──────────────────────────────────────
+function TRIcon() {
+  return (
+    <img
+      src="https://logo.clearbit.com/traderepublic.com"
+      alt="Trade Republic"
+      className="w-8 h-8 rounded-lg shrink-0 object-contain bg-black"
+      onError={(e) => {
+        const img = e.currentTarget as HTMLImageElement;
+        img.src = 'https://www.google.com/s2/favicons?domain=traderepublic.com&sz=64';
+      }}
+    />
+  );
+}
+
+// ─── Numbered step badge ─────────────────────────────────────────────────────
+function StepBadge({ n }: { n: number }) {
+  return (
+    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold shrink-0 mt-0.5">
+      {n}
+    </span>
+  );
+}
+
+// ─── Broker instruction card ─────────────────────────────────────────────────
+interface BrokerGuideProps {
+  icon: React.ReactNode;
+  name: string;
+  badge: string;
+  format: string;
+  steps: string[];
+  hint: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+function BrokerGuide({ icon, name, badge, format, steps, hint, isOpen, onToggle }: BrokerGuideProps) {
+  return (
+    <div className={cn(
+      'rounded-xl border bg-card overflow-hidden transition-all duration-200',
+      isOpen && 'ring-2 ring-primary/20 border-primary/30'
+    )}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors text-left"
+      >
+        <div className="shrink-0">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm">{name}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">{badge}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{format}</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!isOpen && (
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              {hint}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              'w-4 h-4 text-muted-foreground transition-transform duration-200',
+              isOpen ? 'rotate-180' : 'rotate-0'
+            )}
+          />
+        </div>
+      </button>
+      {/* Animated expand using CSS grid trick */}
+      <div className={cn(
+        'grid transition-all duration-200 ease-in-out',
+        isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+      )}>
+        <div className="overflow-hidden">
+          <div className="px-4 pb-4 pt-1 border-t">
+            <ol className="space-y-2 mt-2">
+              {steps.map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <StepBadge n={i + 1} />
+                  <span dangerouslySetInnerHTML={{ __html: step }} />
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface UploadedFile {
   name: string;
@@ -22,7 +122,7 @@ interface UploadStepProps {
 }
 
 export function UploadStep({ onComplete }: UploadStepProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -140,11 +240,100 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
   const totalTransactions = combinedResult?.transactions.length ?? 0;
 
+  const isPT = lang === 'pt';
+
+  const [deGiroOpen, setDeGiroOpen] = useState(false);
+  const [trOpen, setTrOpen] = useState(false);
+
+  const deGiroSteps = isPT ? [
+    'Acede a <strong>degiro.pt</strong> e faz login na tua conta.',
+    'No menu lateral, clica em <strong>Actividade</strong>.',
+    'No canto superior direito, clica em <strong>Exportar</strong>.',
+    'Em "Tipo de ficheiro", seleciona <strong>Conta</strong> (não "Transações").',
+    'Em "Período", escolhe <strong>desde o início</strong> até hoje — inclui todo o histórico para que o FIFO seja correto.',
+    'Clica em <strong>Exportar CSV</strong> e guarda o ficheiro.',
+  ] : [
+    'Go to <strong>degiro.com</strong> and log in to your account.',
+    'In the sidebar, click <strong>Activity</strong>.',
+    'Click <strong>Export</strong> in the top-right corner.',
+    'Under "File type", select <strong>Account</strong> (not "Transactions").',
+    'Under "Period", choose <strong>from the beginning</strong> to today — full history is needed for correct FIFO matching.',
+    'Click <strong>Export CSV</strong> and save the file.',
+  ];
+
+  const trSteps = isPT ? [
+    'Abre a app <strong>Trade Republic</strong> no teu telemóvel.',
+    'Toca no ícone do <strong>perfil</strong> (canto superior esquerdo).',
+    'Vai a <strong>Documentos</strong>.',
+    'Seleciona <strong>Extrato de conta</strong> (Account Statement).',
+    'Escolhe o período — seleciona desde o início da conta até ao fim do ano fiscal.',
+    'Descarrega o <strong>PDF</strong> e transfere-o para o computador.',
+  ] : [
+    'Open the <strong>Trade Republic</strong> app on your phone.',
+    'Tap the <strong>profile</strong> icon (top-left corner).',
+    'Go to <strong>Documents</strong>.',
+    'Select <strong>Account Statement</strong>.',
+    'Choose the period — from account opening to the end of the fiscal year.',
+    'Download the <strong>PDF</strong> and transfer it to your computer.',
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">{t.uploadTitle}</h2>
-        <p className="text-muted-foreground mt-1">{t.uploadDesc}</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+
+      {/* Hero */}
+      <div className="text-center space-y-2 pt-2">
+        <h2 className="text-3xl font-bold tracking-tight">{t.uploadTitle}</h2>
+        <p className="text-muted-foreground max-w-xl mx-auto text-sm leading-relaxed">
+          {isPT
+            ? 'Calcula automaticamente as mais-valias para o Anexo J do IRS. 100% local — os teus dados nunca saem do browser.'
+            : 'Automatically compute capital gains for your IRS Anexo J. 100% local — your data never leaves the browser.'}
+        </p>
+        <div className="flex items-center justify-center gap-4 pt-1">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+            {isPT ? 'Sem servidor — tudo no browser' : 'No server — fully in-browser'}
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Shield className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+            {isPT ? 'FIFO conforme CIRS art. 43' : 'FIFO per CIRS art. 43'}
+          </span>
+        </div>
+      </div>
+
+      {/* Broker guides */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-0.5">
+          {isPT ? 'Como exportar o teu histórico' : 'How to export your history'}
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+          <BrokerGuide
+            icon={<DeGiroIcon />}
+            name="DeGiro"
+            badge="CSV"
+            format={isPT ? 'Ficheiro CSV · Exportar via browser' : 'CSV file · Export via browser'}
+            steps={deGiroSteps}
+            hint={isPT ? 'Ver instruções' : 'See instructions'}
+            isOpen={deGiroOpen}
+            onToggle={() => setDeGiroOpen(v => !v)}
+          />
+          <BrokerGuide
+            icon={<TRIcon />}
+            name="Trade Republic"
+            badge="PDF"
+            format={isPT ? 'Extrato PDF · Exportar via app' : 'PDF statement · Export via app'}
+            steps={trSteps}
+            hint={isPT ? 'Ver instruções' : 'See instructions'}
+            isOpen={trOpen}
+            onToggle={() => setTrOpen(v => !v)}
+          />
+        </div>
+        {!deGiroOpen && !trOpen && (
+          <p className="text-xs text-center text-muted-foreground pt-0.5">
+            {isPT
+              ? '↑ Expande o teu broker para ver como exportar o ficheiro'
+              : '↑ Expand your broker to see how to export the file'}
+          </p>
+        )}
       </div>
 
       {/* Drop zone */}
@@ -156,7 +345,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={cn(
-          'border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 transition-colors',
+          'border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 transition-colors',
           isProcessing
             ? 'cursor-not-allowed opacity-60'
             : 'cursor-pointer',
@@ -174,10 +363,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         </div>
         <div className="text-center">
           {isProcessing ? (
-            <>
-              <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
-              <p className="font-medium mt-2">{t.uploadProcessing}</p>
-            </>
+            <p className="font-medium mt-1">{t.uploadProcessing}</p>
           ) : (
             <>
               <p className="font-medium">
@@ -187,7 +373,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
                 {t.uploadOr}{' '}
                 <span className="text-primary underline cursor-pointer">{t.uploadBrowse}</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-2">{t.uploadSupportedFormats}</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{t.uploadSupportedFormats}</p>
             </>
           )}
         </div>
@@ -396,9 +582,13 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       )}
 
       {/* Privacy note */}
-      <div className="flex items-start gap-2 text-xs text-muted-foreground">
-        <FileText className="w-4 h-4 shrink-0 mt-0.5" />
-        <span>{t.uploadDesc}</span>
+      <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pb-2">
+        <Lock className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+        <span>
+          {isPT
+            ? 'Os teus ficheiros são processados localmente no browser. Nenhum dado é enviado para servidores.'
+            : 'Your files are processed locally in the browser. No data is sent to any server.'}
+        </span>
       </div>
     </div>
   );

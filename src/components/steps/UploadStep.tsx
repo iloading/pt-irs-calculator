@@ -1,11 +1,17 @@
-import { useCallback, useState } from 'react';
-import { Upload, FileText, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Upload, FileText, AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { parseBrokerFile, getAvailableSaleYears } from '@/lib/brokerParser';
 import type { BrokerFormat } from '@/lib/brokerParser';
 import type { ParseResult } from '@/types/transaction';
+
+interface UploadedFile {
+  name: string;
+  format: BrokerFormat;
+  result: ParseResult;
+}
 
 interface UploadStepProps {
   onComplete: (result: ParseResult, selectedYear: number) => void;
@@ -14,46 +20,73 @@ interface UploadStepProps {
 export function UploadStep({ onComplete }: UploadStepProps) {
   const { t } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
-  const [brokerFormat, setBrokerFormat] = useState<BrokerFormat | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2025);
-  const [fileName, setFileName] = useState<string>('');
 
-  const processFile = useCallback(
-    async (file: File) => {
-      setFileName(file.name);
+  // Merge all uploaded files into a single ParseResult
+  const combinedResult = useMemo<ParseResult | null>(() => {
+    if (uploadedFiles.length === 0) return null;
+    const allTransactions = uploadedFiles
+      .flatMap((f) => f.result.transactions)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    const allSplitEvents = uploadedFiles.flatMap((f) => f.result.splitEvents);
+    const allWarnings = uploadedFiles.flatMap((f) => f.result.warnings);
+    return { transactions: allTransactions, splitEvents: allSplitEvents, warnings: allWarnings };
+  }, [uploadedFiles]);
+
+  const availableYears = useMemo(
+    () => (combinedResult ? getAvailableSaleYears(combinedResult.transactions) : []),
+    [combinedResult]
+  );
+
+  const processFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
       setError(null);
-      setParseResult(null);
-      setBrokerFormat(null);
       setIsProcessing(true);
 
-      try {
-        const { format, result } = await parseBrokerFile(file);
+      const newEntries: UploadedFile[] = [];
+      const errors: string[] = [];
 
-        if (result.transactions.length === 0) {
-          setError(
-            result.warnings.length > 0
-              ? result.warnings[0]
-              : t.uploadInvalidFile
-          );
-          setIsProcessing(false);
-          return;
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            const { format, result } = await parseBrokerFile(file);
+            if (result.transactions.length === 0) {
+              errors.push(
+                `${file.name}: ${result.warnings.length > 0 ? result.warnings[0] : t.uploadInvalidFile}`
+              );
+              return;
+            }
+            newEntries.push({ name: file.name, format, result });
+          } catch (err) {
+            errors.push(
+              `${file.name}: ${err instanceof Error ? err.message : t.uploadInvalidFile}`
+            );
+          }
+        })
+      );
+
+      setUploadedFiles((prev) => {
+        const next = [...prev];
+        for (const entry of newEntries) {
+          const existingIdx = next.findIndex((f) => f.name === entry.name);
+          if (existingIdx >= 0) {
+            next[existingIdx] = entry;
+          } else {
+            next.push(entry);
+          }
         }
+        const allTx = next.flatMap((f) => f.result.transactions);
+        const years = getAvailableSaleYears(allTx);
+        if (years.length > 0) setSelectedYear(years[0]);
+        return next;
+      });
 
-        const years = getAvailableSaleYears(result.transactions);
-        const defaultYear = years.length > 0 ? years[0] : 2025;
-        setSelectedYear(defaultYear);
-        setBrokerFormat(format);
-        setParseResult(result);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : t.uploadInvalidFile
-        );
-      } finally {
-        setIsProcessing(false);
-      }
+      if (errors.length > 0) setError(errors.join('\n'));
+      setIsProcessing(false);
     },
     [t]
   );
@@ -62,27 +95,32 @@ export function UploadStep({ onComplete }: UploadStepProps) {
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) void processFile(file);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) void processFiles(files);
     },
-    [processFile]
+    [processFiles]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) void processFile(file);
-      // Reset input so the same file can be re-selected after an error
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) void processFiles(files);
       e.target.value = '';
     },
-    [processFile]
+    [processFiles]
   );
 
-  const availableYears = parseResult
-    ? getAvailableSaleYears(parseResult.transactions)
-    : [];
+  const removeFile = (name: string) => {
+    setUploadedFiles((prev) => {
+      const next = prev.filter((f) => f.name !== name);
+      const allTx = next.flatMap((f) => f.result.transactions);
+      const years = getAvailableSaleYears(allTx);
+      if (years.length > 0) setSelectedYear(years[0]);
+      return next;
+    });
+  };
 
-  const totalTransactions = parseResult?.transactions.length ?? 0;
+  const totalTransactions = combinedResult?.transactions.length ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -124,7 +162,9 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             </>
           ) : (
             <>
-              <p className="font-medium">{t.uploadDrop}</p>
+              <p className="font-medium">
+                {uploadedFiles.length > 0 ? t.uploadAddMore : t.uploadDrop}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {t.uploadOr}{' '}
                 <span className="text-primary underline cursor-pointer">{t.uploadBrowse}</span>
@@ -137,6 +177,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           id="csv-input"
           type="file"
           accept=".csv,.pdf,text/csv,application/pdf"
+          multiple
           className="hidden"
           onChange={handleFileInput}
           disabled={isProcessing}
@@ -145,41 +186,65 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          {error}
+        <div className="flex items-start gap-2 text-destructive text-sm p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="whitespace-pre-line">{error}</span>
         </div>
       )}
 
-      {/* Parse result */}
-      {parseResult && (
-        <div className="space-y-4">
-          {/* Success banner */}
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-green-700 dark:text-green-400">
-                  {t.uploadAccepted}: <span className="font-normal">{fileName}</span>
-                </p>
-                {brokerFormat && (
+      {/* Uploaded files list */}
+      {uploadedFiles.length > 0 && (
+        <div className="space-y-2">
+          {uploadedFiles.map((file) => (
+            <div
+              key={file.name}
+              className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/30"
+            >
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-green-700 dark:text-green-400 truncate text-sm">
+                    {file.name}
+                  </p>
                   <span className={cn(
-                    'text-xs font-semibold px-2 py-0.5 rounded-full',
-                    brokerFormat === 'degiro'
+                    'text-xs font-semibold px-2 py-0.5 rounded-full shrink-0',
+                    file.format === 'degiro'
                       ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
                       : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                   )}>
-                    {brokerFormat === 'degiro' ? t.uploadBrokerDeGiro : t.uploadBrokerTR}
+                    {file.format === 'degiro' ? t.uploadBrokerDeGiro : t.uploadBrokerTR}
                   </span>
-                )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {file.result.transactions.length} {t.uploadRows}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {totalTransactions} {t.uploadRows}
-              </p>
+              <button
+                onClick={(e) => { e.stopPropagation(); removeFile(file.name); }}
+                className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title={t.uploadRemoveFile}
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ))}
 
-          {/* Stats */}
+          {/* Combined summary when >1 file */}
+          {uploadedFiles.length > 1 && (
+            <div className="p-3 rounded-lg border bg-muted/30 text-sm text-center text-muted-foreground">
+              <span className="font-semibold text-foreground">{totalTransactions}</span>{' '}
+              {t.uploadTotalTransactions}
+              {' · '}
+              <span className="font-semibold text-foreground">{uploadedFiles.length}</span>{' '}
+              {t.uploadFilesLoaded}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Year selector + continue (shown once at least one file is loaded) */}
+      {combinedResult && (
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="p-3 rounded-lg border bg-card">
               <div className="text-muted-foreground">{t.uploadYears}</div>
@@ -190,8 +255,8 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             <div className="p-3 rounded-lg border bg-card">
               <div className="text-muted-foreground">{t.uploadSplits}</div>
               <div className="font-semibold mt-0.5">
-                {parseResult.splitEvents.length > 0
-                  ? parseResult.splitEvents.map((s) => `${s.product} (${s.splitRatio}:1)`).join(', ')
+                {combinedResult.splitEvents.length > 0
+                  ? combinedResult.splitEvents.map((s) => `${s.product} (${s.splitRatio}:1)`).join(', ')
                   : '—'}
               </div>
             </div>
@@ -217,14 +282,14 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           </div>
 
           {/* Warnings */}
-          {parseResult.warnings.length > 0 && (
+          {combinedResult.warnings.length > 0 && (
             <div className="space-y-1">
               <p className="text-sm font-medium flex items-center gap-1 text-amber-600">
                 <AlertTriangle className="w-4 h-4" />
                 {t.uploadWarnings}
               </p>
               <ul className="text-xs text-muted-foreground space-y-0.5 pl-5 list-disc">
-                {parseResult.warnings.map((w, i) => (
+                {combinedResult.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>
@@ -235,7 +300,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           <div className="flex justify-end">
             <Button
               size="lg"
-              onClick={() => onComplete(parseResult, selectedYear)}
+              onClick={() => onComplete(combinedResult, selectedYear)}
               disabled={availableYears.length === 0}
             >
               {t.uploadContinue}

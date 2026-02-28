@@ -35,6 +35,11 @@ const translations = {
     uploadBrokerDeGiro: 'DeGiro CSV',
     uploadBrokerTR: 'Trade Republic PDF',
     uploadSupportedFormats: 'Formatos suportados: DeGiro CSV (.csv) · Trade Republic Extrato de conta (.pdf)',
+    uploadAddMore: 'Adicionar outro ficheiro',
+    uploadRemoveFile: 'Remover',
+    uploadFilesLoaded: 'ficheiro(s) carregado(s)',
+    uploadTotalTransactions: 'transações no total',
+    uploadDuplicateFile: 'Já existe um ficheiro com este nome. Foi substituído.',
 
     // Review
     reviewTitle: 'Rever transações',
@@ -231,6 +236,11 @@ const translations = {
     uploadBrokerDeGiro: 'DeGiro CSV',
     uploadBrokerTR: 'Trade Republic PDF',
     uploadSupportedFormats: 'Supported formats: DeGiro CSV (.csv) · Trade Republic Account Statement (.pdf)',
+    uploadAddMore: 'Add another file',
+    uploadRemoveFile: 'Remove',
+    uploadFilesLoaded: 'file(s) loaded',
+    uploadTotalTransactions: 'transactions total',
+    uploadDuplicateFile: 'A file with this name already existed and was replaced.',
 
     reviewTitle: 'Review transactions',
     reviewDesc: 'Verify the imported transactions before calculating taxes.',

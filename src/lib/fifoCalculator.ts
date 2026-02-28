@@ -88,8 +88,10 @@ function processSell(
   const saleFeePerShare = totalSaleFeeEUR / Math.abs(tx.quantity);
 
   for (const lot of lotQueue) {
-    if (remainingToSell <= 0) break;
+    if (remainingToSell < 1e-9) break; // treat floating-point epsilon as zero
     if (lot.remainingQuantity <= 0) continue;
+    // Never consume a lot acquired after the sell date
+    if (lot.acquisitionDate > tx.date) continue;
 
     const matched = Math.min(lot.remainingQuantity, remainingToSell);
     lot.remainingQuantity -= matched;

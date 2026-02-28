@@ -96,7 +96,7 @@ const translations = {
     resultsLotRawGain: 'Mais-valia bruta',
     resultsLotTaxableGain: 'Tributável',
     resultsContinue: 'Ver guia de preenchimento do IRS',
-    resultsIRSJovemNote: 'IRS Jovem não reduz o imposto sobre mais-valias (Cat. G) diretamente. Mas se o teu rendimento de trabalho for 100% isento, o englobamento pode ser muito vantajoso — activa a opção acima para simular.',
+    resultsIRSJovemNote: 'IRS Jovem (OE2025): 10 anos, até 35 anos. Isenção só se aplica a Cat. A/B — não reduz diretamente o imposto sobre mais-valias (Cat. G). Mas com o rendimento isento, a base de englobamento é mais baixa, podendo tornar o englobamento muito vantajoso. Cap: €28.737,50/ano. Confirme com um TOC/ROC.',
 
     // Guide
     guideTitle: 'Guia de preenchimento do Anexo J',
@@ -285,7 +285,7 @@ const translations = {
     resultsLotRawGain: 'Raw gain',
     resultsLotTaxableGain: 'Taxable',
     resultsContinue: 'View IRS filing guide',
-    resultsIRSJovemNote: 'IRS Jovem does not directly reduce tax on capital gains (Cat. G). However, if your employment income is 100% exempt, englobamento can be highly advantageous — enable the option above to simulate.',
+    resultsIRSJovemNote: 'IRS Jovem (OE2025): 10 years, up to age 35. Exemption only applies to Cat. A/B income — does not directly reduce tax on capital gains (Cat. G). However, the lower taxable base may make englobamento highly advantageous. Cap: €28,737.50/year. Confirm with a TOC/ROC.',
 
     guideTitle: 'Annex J Filing Guide',
     guideSubtitle: 'Follow these steps to declare your capital gains on the Portal das Finanças.',

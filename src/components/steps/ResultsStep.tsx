@@ -225,10 +225,10 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
   const [irsJovemYear, setIrsJovemYear] = useState<number>(0);
 
   function irsJovemExemptionRate(year: number): number {
-    if (year === 1) return 1.0;
-    if (year <= 3) return 0.75;
-    if (year <= 5) return 0.50;
-    if (year <= 8) return 0.25;
+    if (year === 1) return 1.0;       // 100% — OE2025
+    if (year <= 4) return 0.75;       // 75%  — anos 2-4
+    if (year <= 7) return 0.50;       // 50%  — anos 5-7
+    if (year <= 10) return 0.25;      // 25%  — anos 8-10
     return 0;
   }
 
@@ -390,7 +390,7 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
                   {irsJovemYear > 0 && (
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {[1,2,3,4,5,6,7,8].map((yr) => {
+                        {[1,2,3,4,5,6,7,8,9,10].map((yr) => {
                           const rate = irsJovemExemptionRate(yr);
                           const pct = `${(rate * 100).toFixed(0)}%`;
                           return (
@@ -439,6 +439,13 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
                         {formatEUR(effectiveOtherIncome)}
                       </strong>
                       {' '}({lang === 'pt' ? `isenção de` : `exemption`} {(irsJovemExemption * 100).toFixed(0)}% → {(100 - irsJovemExemption * 100).toFixed(0)}% {lang === 'pt' ? 'tribut.' : 'taxable'})
+                    </p>
+                  )}
+                  {irsJovemYear > 0 && otherIncome > 28737.5 && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                      ⚠️ {lang === 'pt'
+                        ? `O limite máximo de isenção é €28.737,50/ano (OE2025). Acima desse valor, o excedente é tributado normalmente. A simulação acima não inclui esse cap.`
+                        : `The maximum exemption cap is €28,737.50/year (OE2025). Income above this is taxed normally. The simulation above does not account for this cap.`}
                     </p>
                   )}
                 </div>

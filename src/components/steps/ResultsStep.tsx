@@ -26,6 +26,10 @@ import { calculateFIFO } from '@/lib/fifoCalculator';
 import { getAvailableSaleYears } from '@/lib/brokerParser';
 import { openPdfReport } from '@/lib/pdfReport';
 import { cn } from '@/lib/utils';
+import {
+  guessIsCompanyShare,
+  MONETARY_CORRECTION_DISPOSAL_YEAR,
+} from '@/lib/monetaryCorrection';
 import type { FifoMatch, ParseResult, PortfolioLotState, TaxSummary, TaxableSale } from '@/types/transaction';
 
 interface ResultsStepProps {
@@ -94,6 +98,8 @@ function AllLotsDetail({
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotTier}</th>
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotExclusion}</th>
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotAcqCost}</th>
+                <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotCoefficient}</th>
+                <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotCorrectedCost}</th>
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotProceeds}</th>
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotRawGain}</th>
                 <th className="px-4 py-1.5 text-right font-medium">{t.resultsLotTaxableGain}</th>
@@ -120,6 +126,20 @@ function AllLotsDetail({
                     )}
                   </td>
                   <td className="px-4 py-1.5 text-right">{formatEUR(m.acquisitionCostEUR)}</td>
+                  <td className="px-4 py-1.5 text-right">
+                    {m.monetaryCorrectionCoefficient !== 1 ? (
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">
+                        ×{m.monetaryCorrectionCoefficient.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-1.5 text-right">
+                    {m.monetaryCorrectionCoefficient !== 1
+                      ? formatEUR(m.correctedAcquisitionCostEUR)
+                      : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td className="px-4 py-1.5 text-right">{formatEUR(m.saleValueEUR)}</td>
                   <td
                     className={cn(
@@ -233,6 +253,26 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
   const [priorYearLossEUR, setPriorYearLossEUR] = useState<number>(0);
   const [showPriorLoss, setShowPriorLoss] = useState(false);
   const [showMultiYear, setShowMultiYear] = useState(false);
+  const [applyMonetaryCorrection, setApplyMonetaryCorrection] = useState(true);
+  const [companyShareOverrides, setCompanyShareOverrides] = useState<Record<string, boolean>>({});
+
+  // Default classification per ISIN: guessed from product name, overridable in the UI
+  const companyShareByIsin = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const tx of parseResult.transactions) {
+      if (!map.has(tx.isin)) {
+        map.set(tx.isin, companyShareOverrides[tx.isin] ?? guessIsCompanyShare(tx.product));
+      }
+    }
+    return map;
+  }, [parseResult, companyShareOverrides]);
+
+  const toggleCompanyShare = (isin: string) => {
+    setCompanyShareOverrides((prev) => ({
+      ...prev,
+      [isin]: !(prev[isin] ?? companyShareByIsin.get(isin) ?? true),
+    }));
+  };
 
   function irsJovemExemptionRate(year: number): number {
     if (year === 1) return 1.0;       // 100% — OE2025
@@ -252,7 +292,9 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
     parseResult.transactions,
     parseResult.splitEvents,
     selectedYear,
-    applyHoldingReductions
+    applyHoldingReductions,
+    applyMonetaryCorrection,
+    companyShareByIsin
   );
 
   const summary = buildTaxSummary(sales, selectedYear, priorYearLossEUR);
@@ -317,6 +359,14 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
               : `Buys: ${formatEUR(summary.totalBuyFeesEUR)} · Sells: ${formatEUR(summary.totalSaleFeesEUR)}`
           }
         />
+        {summary.totalMonetaryCorrectionUpliftEUR > 0 && (
+          <SummaryCard
+            label={t.monetaryCorrectionUplift}
+            value={`+${formatEUR(summary.totalMonetaryCorrectionUpliftEUR)}`}
+            variant="positive"
+            tooltip={t.monetaryCorrectionExplain}
+          />
+        )}
         <SummaryCard
           label={t.resultsRawGain}
           value={formatEUR(summary.totalRawGainEUR)}
@@ -519,6 +569,66 @@ export function ResultsStep({ parseResult, selectedYear, onBack, onContinue }: R
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
           <span>{t.resultsHoldingReductionWarning}</span>
         </div>
+      </div>
+
+      {/* Monetary correction (CIRS art. 50) */}
+      <div className="rounded-xl border p-4 space-y-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h3 className="font-semibold text-sm">{t.monetaryCorrectionTitle}</h3>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="monetary-correction-switch"
+              checked={applyMonetaryCorrection}
+              onCheckedChange={setApplyMonetaryCorrection}
+            />
+            <Label htmlFor="monetary-correction-switch" className="text-sm cursor-pointer select-none">
+              {t.monetaryCorrectionToggle}
+            </Label>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">{t.monetaryCorrectionExplain}</p>
+
+        <div className="flex items-start gap-2 text-xs text-muted-foreground p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-purple-500" />
+          <span>{t.monetaryCorrectionScopeNote}</span>
+        </div>
+
+        {selectedYear !== MONETARY_CORRECTION_DISPOSAL_YEAR && (
+          <div className="flex items-start gap-2 text-xs text-muted-foreground p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
+            <span>{t.monetaryCorrectionYearWarning(selectedYear)}</span>
+          </div>
+        )}
+
+        {/* Per-asset classification */}
+        {applyMonetaryCorrection && (
+          <div className="space-y-1.5 pt-1">
+            <p className="text-xs font-medium text-muted-foreground">{t.assetClassificationLabel}</p>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(companyShareByIsin.entries()).map(([isin, isShare]) => {
+                const product = parseResult.transactions.find((tx) => tx.isin === isin)?.product ?? isin;
+                return (
+                  <button
+                    key={isin}
+                    type="button"
+                    onClick={() => toggleCompanyShare(isin)}
+                    title={t.assetClassificationHint}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg border text-xs font-medium transition-all',
+                      isShare
+                        ? 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30'
+                        : 'bg-muted text-muted-foreground border-muted'
+                    )}
+                  >
+                    {product}: {isShare ? t.assetClassificationShare : t.assetClassificationFund}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">{t.assetClassificationHint}</p>
+          </div>
+        )}
       </div>
 
       {/* Tax method comparison */}

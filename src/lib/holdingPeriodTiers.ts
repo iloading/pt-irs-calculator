@@ -1,11 +1,11 @@
 import type { HoldingTier } from '../types/transaction';
 
 /**
- * Holding-period exclusion tiers introduced by OE2024 (amendments to CIRS art. 43, n.º 3).
+ * Holding-period exclusion tiers introduced by OE2024 (amendments to CIRS art. 43, n.º 5).
  *
- * These reductions apply to ALL listed shares and ETFs.
+ * These reductions apply to ALL listed shares and ETFs/fund units.
  *
- * Only exception (CIRS art. 43, n.º 3 in fine):
+ * Only exception (CIRS art. 43, n.º 5 in fine):
  * If the asset was held for LESS than 365 days AND the taxpayer’s taxable income
  * equals or exceeds the top IRS bracket (€83,696 in 2025), these exclusions do NOT apply.
  *

@@ -50,14 +50,16 @@ export interface FifoMatch {
   lotAcquisitionDate: Date;
   lotOrderId: string;
   quantityMatched: number;
-  acquisitionCostEUR: number;   // cost basis for this matched portion (clean EUR value + acq fees)
+  acquisitionCostEUR: number;   // RAW cost basis (clean EUR value + acq fees) — use this for Anexo J filing
   buyFeeEUR: number;            // acquisition fees portion only (autoFx + transaction at buy)
   saleValueEUR: number;         // proceeds allocated to this portion
   saleFeeEUR: number;           // sale fees allocated to this portion
   holdingDays: number;
   holdingTier: HoldingTier;
-  rawGainEUR: number;           // proceeds - cost (before exclusion)
-  taxableGainEUR: number;       // rawGain * (1 - exclusionRate)
+  monetaryCorrectionCoefficient: number;  // CIRS art. 50 — 1 if not applicable/not applied
+  correctedAcquisitionCostEUR: number;    // acquisitionCostEUR * coefficient (used for gain calc only)
+  rawGainEUR: number;           // proceeds - correctedAcquisitionCostEUR (before holding-tier exclusion)
+  taxableGainEUR: number;       // rawGain * (1 - exclusionRate), exclusion only applied when rawGain > 0
 }
 
 // ─── One fully-calculated taxable sale event ─────────────────────────────────
@@ -72,10 +74,13 @@ export interface TaxableSale {
   totalBuyFeeEUR: number;    // sum of buy-side fees for the matched lots
   netProceedsEUR: number;    // grossProceeds - totalSaleFee (not used for tax calc, informational)
   fifoMatches: FifoMatch[];
-  totalAcquisitionCostEUR: number;
+  totalAcquisitionCostEUR: number;      // RAW cost basis — use for Anexo J filing
+  totalCorrectedAcquisitionCostEUR: number; // cost basis after CIRS art. 50 correction
   totalRawGainEUR: number;
   totalTaxableGainEUR: number; // after holding period exclusions
   holdingPeriodReductionApplied: boolean;
+  monetaryCorrectionApplied: boolean;
+  isCompanyShare: boolean;     // classification used for this sale (editable in UI)
   orderId: string;
 }
 
@@ -98,6 +103,7 @@ export interface TaxSummary {
   totalFeesEUR: number;
   totalRawGainEUR: number;
   totalTaxableGainEUR: number;      // after holding period exclusions
+  totalMonetaryCorrectionUpliftEUR: number; // extra cost basis from CIRS art. 50 (reduces gain)
   priorYearLossEUR: number;         // user-supplied carryforward loss
   adjustedTaxableGainEUR: number;   // max(0, totalTaxableGainEUR - priorYearLossEUR)
   taxAtAutonomousRate: number;      // adjustedTaxableGain * 0.28

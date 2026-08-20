@@ -2,16 +2,19 @@ import type { TaxableSale, TaxSummary } from '../types/transaction';
 import { AUTONOMOUS_RATE } from './holdingPeriodTiers';
 
 // 2025 IRS progressive brackets (continental Portugal)
-// Source: OE2025 / CIRS art. 68
+// Source: OE2025 / CIRS art. 68 — rates verified against the official
+// "taxa normal" / "parcela a abater" table (boundaries were already correct,
+// but the rates here previously did not match OE2025 and produced wrong
+// englobamento estimates).
 export const PROGRESSIVE_BRACKETS = [
-  { upTo: 8_059, rate: 0.1325 },
-  { upTo: 12_160, rate: 0.18 },
-  { upTo: 17_233, rate: 0.23 },
-  { upTo: 22_306, rate: 0.26 },
-  { upTo: 28_400, rate: 0.3275 },
-  { upTo: 41_629, rate: 0.37 },
-  { upTo: 44_987, rate: 0.435 },
-  { upTo: 83_696, rate: 0.45 },
+  { upTo: 8_059, rate: 0.125 },
+  { upTo: 12_160, rate: 0.16 },
+  { upTo: 17_233, rate: 0.215 },
+  { upTo: 22_306, rate: 0.244 },
+  { upTo: 28_400, rate: 0.314 },
+  { upTo: 41_629, rate: 0.349 },
+  { upTo: 44_987, rate: 0.431 },
+  { upTo: 83_696, rate: 0.446 },
   { upTo: Infinity, rate: 0.48 },
 ];
 
@@ -50,6 +53,10 @@ export function buildTaxSummary(
   const totalFeesEUR = totalBuyFeesEUR + totalSaleFeesEUR;
   const totalRawGainEUR = sales.reduce((s, sale) => s + sale.totalRawGainEUR, 0);
   const totalTaxableGainEUR = sales.reduce((s, sale) => s + sale.totalTaxableGainEUR, 0);
+  const totalMonetaryCorrectionUpliftEUR = sales.reduce(
+    (s, sale) => s + (sale.totalCorrectedAcquisitionCostEUR - sale.totalAcquisitionCostEUR),
+    0
+  );
 
   const priorLoss = Math.max(0, priorYearLossEUR);
   const adjustedTaxableGainEUR = Math.max(0, totalTaxableGainEUR - priorLoss);
@@ -67,6 +74,7 @@ export function buildTaxSummary(
     totalFeesEUR,
     totalRawGainEUR,
     totalTaxableGainEUR,
+    totalMonetaryCorrectionUpliftEUR,
     priorYearLossEUR: priorLoss,
     adjustedTaxableGainEUR,
     taxAtAutonomousRate,

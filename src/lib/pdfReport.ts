@@ -38,6 +38,7 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
     saleDate: Date;
     realization: number;
     acqCost: number;
+    coefficient: number;
     rawGain: number;
     qty: number;
   }
@@ -52,11 +53,13 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
         saleDate: sale.saleDate,
         realization: m.saleValueEUR,
         acqCost: m.acquisitionCostEUR,
+        coefficient: m.monetaryCorrectionCoefficient,
         rawGain: m.rawGainEUR,
         qty: m.quantityMatched,
       });
     }
   }
+  const hasMonetaryCorrection = filingRows.some((r) => r.coefficient !== 1);
 
   // Row-per-asset per-year summary of multi-year already in TaxSummary,
   // just use summary.sales grouped by ISIN for the per-asset table.
@@ -116,6 +119,7 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
     saleDate: isPT ? 'Data alieção' : 'Sale date',
     realization: isPT ? 'Valor realiz. (€)' : 'Realisation (€)',
     acqCost: isPT ? 'Custo aquis. (€)' : 'Acq. cost (€)',
+    coefficient: isPT ? 'Coef. art. 50' : 'Art. 50 coef.',
     gain: isPT ? 'Mais-valia (€)' : 'Gain (€)',
     qty: isPT ? 'Qtd.' : 'Qty.',
     total: 'Total',
@@ -126,6 +130,9 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
     notesQ92: isPT
       ? 'Para o Quadro 9.2 do Anexo J: preencha uma linha por lote FIFO. Os valores de realização são distribuídos proporcionalmente à quantidade do lote.'
       : 'For Quadro 9.2 of Annex J: fill one row per FIFO lot. Realisation values are proportionally allocated by lot quantity.',
+    notesMonetaryCorrection: isPT
+      ? 'Insira no Quadro 9.2 o "Custo aquis." SEM correção (coluna acima) — a AT aplica automaticamente a correção monetária (CIRS art. 50) e a exclusão por prazo de detenção ao processar a liquidação. A "Mais-valia" apresentada aqui já reflete essas correções e serve apenas de estimativa do imposto devido, não do valor a inserir no formulário.'
+      : 'Enter the RAW "Acq. cost" (column above, no correction) in Quadro 9.2 — AT automatically applies monetary correction (CIRS art. 50) and the holding-period exclusion when processing the return. The "Gain" shown here already reflects those corrections and is only a tax estimate, not the value to type into the form.',
   };
 
   const css = `
@@ -199,6 +206,7 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
       <td>${dateStr(r.saleDate)}</td>
       <td class="right">${r.realization.toFixed(2)}</td>
       <td class="right">${r.acqCost.toFixed(2)}</td>
+      <td class="right">${r.coefficient !== 1 ? `×${r.coefficient.toFixed(2)}` : '—'}</td>
       <td class="right" style="color:${gainColor(r.rawGain)}">${fmt(r.rawGain)}</td>
       <td class="right">${r.qty}</td>
     </tr>`
@@ -252,6 +260,7 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
         <th>${escHtml(labels.saleDate)}</th>
         <th class="right">${escHtml(labels.realization)}</th>
         <th class="right">${escHtml(labels.acqCost)}</th>
+        <th class="right">${escHtml(labels.coefficient)}</th>
         <th class="right">${escHtml(labels.gain)}</th>
         <th class="right">${escHtml(labels.qty)}</th>
       </tr>
@@ -262,12 +271,14 @@ export function openPdfReport(summary: TaxSummary, lang: string) {
         <td colspan="5">${escHtml(labels.total)}</td>
         <td class="right">${filingTotals.realization.toFixed(2)}</td>
         <td class="right">${filingTotals.cost.toFixed(2)}</td>
+        <td class="right">—</td>
         <td class="right" style="color:${gainColor(filingTotals.gain)}">${fmt(filingTotals.gain)}</td>
         <td class="right">${filingTotals.qty}</td>
       </tr>
     </tfoot>
   </table>
   <p class="note">💡 ${escHtml(labels.notesQ92)}</p>
+  ${hasMonetaryCorrection ? `<p class="note">💡 ${escHtml(labels.notesMonetaryCorrection)}</p>` : ''}
 
   <h2>${escHtml(labels.notes)}</h2>
   <p class="note">• ${escHtml(labels.notesFIFO)}</p>

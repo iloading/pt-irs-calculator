@@ -7,6 +7,10 @@ import type {
   PortfolioLotState,
 } from '../types/transaction';
 import { getHoldingTier } from './holdingPeriodTiers';
+import {
+  getMonetaryCorrectionCoefficient,
+  MIN_HOLDING_DAYS_FOR_MONETARY_CORRECTION,
+} from './monetaryCorrection';
 
 // ─── Build FIFO lot queues from all BUY transactions ─────────────────────────
 function buildLotQueues(
@@ -75,7 +79,10 @@ function daysBetween(from: Date, to: Date): number {
 function processSell(
   tx: DeGiroTransaction,
   lotQueue: TaxLot[],
-  applyHoldingReductions: boolean
+  applyHoldingReductions: boolean,
+  applyMonetaryCorrection: boolean,
+  isCompanyShare: boolean,
+  fiscalYear: number
 ): { matches: FifoMatch[]; warnings: string[] } {
   const warnings: string[] = [];
   const matches: FifoMatch[] = [];
@@ -106,9 +113,21 @@ function processSell(
     const tier = getHoldingTier(holdingDays);
     const exclusionRate = applyHoldingReductions ? tier.exclusionRate : 0;
 
-    // Net proceeds - acquisition cost = raw gain
-    const rawGainEUR = saleValueEUR - saleFeeEUR - acquisitionCostEUR;
-    const taxableGainEUR = rawGainEUR * (1 - exclusionRate);
+    // CIRS art. 50 — monetary correction coefficient, "partes sociais" only,
+    // held > 24 months. Applied to acquisition cost BEFORE computing the gain.
+    const qualifiesForCorrection =
+      applyMonetaryCorrection &&
+      isCompanyShare &&
+      holdingDays >= MIN_HOLDING_DAYS_FOR_MONETARY_CORRECTION;
+    const monetaryCorrectionCoefficient = qualifiesForCorrection
+      ? getMonetaryCorrectionCoefficient(lot.acquisitionDate.getFullYear(), fiscalYear) ?? 1
+      : 1;
+    const correctedAcquisitionCostEUR = acquisitionCostEUR * monetaryCorrectionCoefficient;
+
+    // Net proceeds - (corrected) acquisition cost = raw gain
+    const rawGainEUR = saleValueEUR - saleFeeEUR - correctedAcquisitionCostEUR;
+    // Holding-period exclusion (CIRS art. 43, n.º 5) only reduces positive gains
+    const taxableGainEUR = rawGainEUR > 0 ? rawGainEUR * (1 - exclusionRate) : rawGainEUR;
 
     matches.push({
       lotAcquisitionDate: lot.acquisitionDate,
@@ -120,6 +139,8 @@ function processSell(
       saleFeeEUR,
       holdingDays,
       holdingTier: { ...tier, exclusionRate },
+      monetaryCorrectionCoefficient,
+      correctedAcquisitionCostEUR,
       rawGainEUR,
       taxableGainEUR,
     });
@@ -141,7 +162,9 @@ export function calculateFIFO(
   transactions: DeGiroTransaction[],
   splitEvents: SplitEvent[],
   fiscalYear: number,
-  applyHoldingReductions: boolean
+  applyHoldingReductions: boolean,
+  applyMonetaryCorrection: boolean = false,
+  isCompanyShareByIsin: Map<string, boolean> = new Map()
 ): { sales: TaxableSale[]; warnings: string[]; portfolioSnapshot: Map<string, PortfolioLotState[]> } {
   const allWarnings: string[] = [];
 
@@ -178,7 +201,15 @@ export function calculateFIFO(
       continue;
     }
 
-    const { matches, warnings } = processSell(tx, queue, applyHoldingReductions);
+    const isCompanyShare = isCompanyShareByIsin.get(tx.isin) ?? true;
+    const { matches, warnings } = processSell(
+      tx,
+      queue,
+      applyHoldingReductions,
+      applyMonetaryCorrection,
+      isCompanyShare,
+      fiscalYear
+    );
     allWarnings.push(...warnings);
 
     // Only include in final results if this sale is in the target fiscal year
@@ -187,10 +218,12 @@ export function calculateFIFO(
     const grossProceedsEUR = tx.eurValue;
     const totalSaleFeeEUR = Math.abs(tx.autoFxFee) + Math.abs(tx.transactionFee);
     const totalAcqCost = matches.reduce((s, m) => s + m.acquisitionCostEUR, 0);
+    const totalCorrectedAcqCost = matches.reduce((s, m) => s + m.correctedAcquisitionCostEUR, 0);
     const totalBuyFeeEUR = matches.reduce((s, m) => s + m.buyFeeEUR, 0);
     const totalRawGain = matches.reduce((s, m) => s + m.rawGainEUR, 0);
     const totalTaxableGain = matches.reduce((s, m) => s + m.taxableGainEUR, 0);
     const reductionApplied = matches.some((m) => m.holdingTier.exclusionRate > 0);
+    const monetaryCorrectionApplied = matches.some((m) => m.monetaryCorrectionCoefficient !== 1);
 
     taxableSales.push({
       saleDate: tx.date,
@@ -204,9 +237,12 @@ export function calculateFIFO(
       netProceedsEUR: grossProceedsEUR - totalSaleFeeEUR,
       fifoMatches: matches,
       totalAcquisitionCostEUR: totalAcqCost,
+      totalCorrectedAcquisitionCostEUR: totalCorrectedAcqCost,
       totalRawGainEUR: totalRawGain,
       totalTaxableGainEUR: totalTaxableGain,
       holdingPeriodReductionApplied: reductionApplied,
+      monetaryCorrectionApplied,
+      isCompanyShare,
       orderId: tx.orderId,
     });
   }
